@@ -14,6 +14,7 @@ interface MatchInfo {
     isInitiator: boolean;
 }
 
+/* I MERGE NOW, GOOD LUCK EVERYONE ELSE */
 function App() {
     const { isAuthenticated, isLoading } = useAuth0();
     const [currentPage, setCurrentPage] = useState<PageState>("LOBBY");
@@ -37,7 +38,9 @@ function App() {
                 audioRef.current.pause();
             } else {
                 // Catch handles any browser autoplay policy rejections
-                audioRef.current.play().catch(err => console.error("Playback failed:", err));
+                audioRef.current
+                    .play()
+                    .catch((err) => console.error("Playback failed:", err));
             }
             setIsPlaying(!isPlaying);
         }
@@ -78,12 +81,15 @@ function App() {
     return (
         // Added 'relative' to the main wrapper so the absolute button positions correctly
         <div className="app-root min-h-screen bg-gray-900 relative">
-            
             {/* Global Background Music Element */}
-            <audio ref={audioRef} src="/playlistsons-wild-west-466301.mp3" loop />
-            
+            <audio
+                ref={audioRef}
+                src="/playlistsons-wild-west-466301.mp3"
+                loop
+            />
+
             {/* Floating Music Toggle Button */}
-            <button 
+            <button
                 onClick={toggleMusic}
                 className="absolute top-4 left-4 z-50 bg-black bg-opacity-60 text-yellow-500 hover:text-white border-2 border-yellow-700 px-4 py-2 rounded-full font-mono transition-colors shadow-lg"
             >
