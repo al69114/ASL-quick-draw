@@ -13,7 +13,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ roundNumber, playerScore, oppon
   const { user } = useAuth0();
   const authUser = user as Record<string, unknown> | undefined;
   const eloClaim = authUser?.[ELO_CLAIM];
-  const elo = typeof eloClaim === 'number' ? eloClaim : 1000;
+  const elo = typeof eloClaim === 'number' ? eloClaim : 1200;
 
   // Best of 5 logic means max score is 3
   const renderBullets = (score: number) => {

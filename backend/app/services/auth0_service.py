@@ -43,15 +43,13 @@ class Auth0Service:
 
         return PlayerStats(
             player_id=user_id,
-            elo=int(stats.get("elo", 1000)),
+            elo=int(stats.get("elo", 1200)),
             wins=int(stats.get("wins", 0)),
             losses=int(stats.get("losses", 0)),
         )
 
-    def update_user_stats(self, user_id: str, stats: PlayerStats) -> PlayerStats:
-        if user_id != stats.player_id:
-            raise ValueError("user_id must match stats.player_id")
-
+    def update_player_stats(self, user_id: str, elo: int, wins: int, losses: int) -> PlayerStats:
+        stats = PlayerStats(player_id=user_id, elo=elo, wins=wins, losses=losses)
         self._management_client().users.update(
             user_id,
             {
@@ -65,3 +63,6 @@ class Auth0Service:
             },
         )
         return stats
+
+    def update_user_stats(self, user_id: str, stats: PlayerStats) -> PlayerStats:
+        return self.update_player_stats(user_id, stats.elo, stats.wins, stats.losses)

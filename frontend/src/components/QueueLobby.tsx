@@ -25,7 +25,7 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbou
   const authUser = user as Record<string, unknown> | undefined;
   const playerId = typeof authUser?.sub === 'string' ? authUser.sub : null;
   const eloClaim = authUser?.[ELO_CLAIM];
-  const elo = typeof eloClaim === 'number' ? eloClaim : 1000;
+  const elo = typeof eloClaim === 'number' ? eloClaim : 1200;
 
   // Keep onMatchFound and playerId stable in event handler closures
   const onMatchFoundRef = useRef(onMatchFound);
