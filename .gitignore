@@ -1,0 +1,49 @@
+# =========================
+# Frontend (Vite / React)
+# =========================
+# Dependencies
+frontend/node_modules/
+node_modules/
+
+# Production build output
+frontend/dist/
+frontend/build/
+dist/
+build/
+
+# Environment variables (Never commit these!)
+.env
+.env.local
+.env.*.local
+
+# npm/yarn/pnpm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Backend (Python / FastAPI)
+# =========================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Database
+*.sqlite3
+elo.db
+
+# =========================
+# OS & Editor Files
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
