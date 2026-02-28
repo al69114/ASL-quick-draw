@@ -27,7 +27,7 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
     const [isQueueing, setIsQueueing] = useState(false);
     const [queuePosition, setQueuePosition] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const { user } = useAuth0();
+    const { user, logout } = useAuth0();
     const { socket, connect } = useDuelSocket();
     const authUser = user as Record<string, unknown> | undefined;
     const playerId = typeof authUser?.sub === "string" ? authUser.sub : null;
@@ -100,6 +100,12 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-amber-900 text-yellow-100 bg-wood-pattern p-6">
             <div className="max-w-2xl text-center border-8 border-yellow-800 bg-black bg-opacity-60 p-12 rounded-xl shadow-2xl">
+                <button 
+                     onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                     className="absolute top-4 right-4 text-sm font-mono text-gray-400 hover:text-white transition-colors z-50"
+                >
+                Hit the trail (Logout)
+            </button>
                 <h1 className="text-7xl font-serif text-yellow-500 mb-4 drop-shadow-lg tracking-widest uppercase">
                     Quick Draw
                 </h1>

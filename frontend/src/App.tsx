@@ -104,7 +104,7 @@ function App() {
             {/* Floating Music Toggle Button */}
             <button
                 onClick={toggleMusic}
-                className="absolute top-4 left-4 z-50 bg-black bg-opacity-60 text-yellow-500 hover:text-white border-2 border-yellow-700 px-4 py-2 rounded-full font-mono transition-colors shadow-lg"
+                className="absolute bottom-4 left-4 z-50 bg-black bg-opacity-60 text-yellow-500 hover:text-white border-2 border-yellow-700 px-4 py-2 rounded-full font-mono transition-colors shadow-lg"
             >
                 {isPlaying ? "🔊 Music: ON" : "🔇 Music: OFF"}
             </button>
