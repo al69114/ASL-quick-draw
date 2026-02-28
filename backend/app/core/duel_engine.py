@@ -60,15 +60,25 @@ class DuelEngine:
         winner_id: str,
         loser_id: str,
     ) -> tuple[PlayerStats, PlayerStats]:
+        """Calculate and persist new ELO ratings using standard formula (K=32)."""
+        K = 32
         try:
             winner_stats = self._auth0_service.get_user_stats(winner_id)
             loser_stats = self._auth0_service.get_user_stats(loser_id)
 
-            winner_stats.wins += 1
-            winner_stats.elo += self._elo_delta
+            # E_a = 1 / (1 + 10^((R_b - R_a) / 400))
+            expected_winner = 1 / (1 + 10 ** ((loser_stats.elo - winner_stats.elo) / 400))
+            expected_loser = 1 / (1 + 10 ** ((winner_stats.elo - loser_stats.elo) / 400))
 
+            # R'_a = R_a + K * (S_a - E_a)
+            winner_stats.elo = round(winner_stats.elo + K * (1 - expected_winner))
+            loser_stats.elo = round(loser_stats.elo + K * (0 - expected_loser))
+
+            # Ensure ELO doesn't drop below 100
+            loser_stats.elo = max(100, loser_stats.elo)
+
+            winner_stats.wins += 1
             loser_stats.losses += 1
-            loser_stats.elo = max(100, loser_stats.elo - self._elo_delta)
 
             self._auth0_service.update_user_stats(winner_id, winner_stats)
             self._auth0_service.update_user_stats(loser_id, loser_stats)
@@ -77,8 +87,8 @@ class DuelEngine:
         except Exception as exc:
             logger.warning(f"Elo update skipped (Auth0 unavailable): {exc}")
             return (
-                PlayerStats(player_id=winner_id, elo=1000, wins=0, losses=0),
-                PlayerStats(player_id=loser_id, elo=1000, wins=0, losses=0),
+                PlayerStats(player_id=winner_id, elo=1200, wins=0, losses=0),
+                PlayerStats(player_id=loser_id, elo=1200, wins=0, losses=0),
             )
 
     def handle_draw(self, room_id: str, player_id: str, is_correct: bool) -> dict:
