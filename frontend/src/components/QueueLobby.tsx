@@ -13,6 +13,7 @@ interface QueueLobbyProps {
     onMatchFound: (info: MatchInfo) => void;
     onViewAbout: () => void;
     onViewHowToPlay: () => void;
+    onViewTutorial: () => void;
     eloAdjustment?: number;
 }
 
@@ -22,6 +23,7 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
     onMatchFound,
     onViewAbout,
     onViewHowToPlay,
+    onViewTutorial,
     eloAdjustment = 0,
 }) => {
     const [isQueueing, setIsQueueing] = useState(false);
@@ -136,6 +138,12 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
                             How to Duel (Rules)
                         </button>
 
+                        <button
+                            onClick={onViewTutorial}
+                            className="bg-green-800 hover:bg-green-700 w-full text-white text-xl font-bold py-3 px-8 border-4 border-green-950 rounded transition-all hover:scale-105"
+                        >
+                            Practice Range (Train Solo)
+                        </button>
                         <button
                             onClick={onViewAbout}
                             className="bg-stone-800 hover:bg-stone-700 w-full text-gray-300 text-xl font-bold py-3 px-8 border-4 border-stone-900 rounded transition-all hover:scale-105"

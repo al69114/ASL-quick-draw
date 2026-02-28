@@ -6,9 +6,9 @@ import MatchPage from "./components/MatchPage";
 import ResultPage from "./components/ResultPage";
 import AboutPage from "./components/AboutPage";
 import HowToPlayPage from "./components/HowToPlayPage";
+import TutorialPage from "./components/TutorialPage";
 
-// Added ABOUT to PageState
-type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT" | "HOW_TO_PLAY";
+type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT" | "HOW_TO_PLAY" | "TUTORIAL";
 
 interface MatchInfo {
     roomId: string;
@@ -87,9 +87,9 @@ function App() {
         setCurrentPage("LOBBY");
     };
 
-    // Navigation handlers for the About page
     const handleViewAbout = () => setCurrentPage("ABOUT");
     const handleViewHowToPlay = () => setCurrentPage("HOW_TO_PLAY");
+    const handleViewTutorial = () => setCurrentPage("TUTORIAL");
     const handleBackToLobby = () => setCurrentPage("LOBBY");
 
     return (
@@ -115,7 +115,12 @@ function App() {
                     eloAdjustment={eloAdjustment}
                     onViewAbout={handleViewAbout}
                     onViewHowToPlay={handleViewHowToPlay}
+                    onViewTutorial={handleViewTutorial}
                 />
+            )}
+
+            {currentPage === "TUTORIAL" && (
+                <TutorialPage onBack={handleBackToLobby} />
             )}
             {currentPage === "MATCH" && matchInfo && (
                 <MatchPage
