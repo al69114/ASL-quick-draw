@@ -113,6 +113,8 @@ function App() {
                 <QueueLobby
                     onMatchFound={handleMatchFound}
                     eloAdjustment={eloAdjustment}
+                    onViewAbout={handleViewAbout}
+                    onViewHowToPlay={handleViewHowToPlay}
                 />
             )}
             {currentPage === "MATCH" && matchInfo && (
@@ -131,6 +133,12 @@ function App() {
                     eloChange={eloChange}
                     onRequeue={handleRequeue}
                 />
+            )}
+            {currentPage === "ABOUT" && (
+                <AboutPage onBack={handleBackToLobby} />
+            )}
+            {currentPage === "HOW_TO_PLAY" && (
+                <HowToPlayPage onBack={handleBackToLobby} />
             )}
         </div>
     );
