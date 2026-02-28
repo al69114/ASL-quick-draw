@@ -9,7 +9,7 @@ from app.services.webrtc_relay import setup_webrtc_signaling
 
 logger = logging.getLogger(__name__)
 
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=[])
 socket_app = socketio.ASGIApp(sio)
 
 # Singletons shared across all socket events

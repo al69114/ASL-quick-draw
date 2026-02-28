@@ -18,6 +18,26 @@ Rules:
 - "confidence" is your confidence level between 0.0 and 1.0.
 """
 
+_TRANSLATE_PROMPT = """You are an ASL (American Sign Language) interpreter helping build words and sentences letter by letter.
+
+Previous signs detected in this session: {history_str}
+
+Look at the hand gesture in this image:
+1. Identify the ASL letter or word sign being shown.
+2. Based on all signs so far (including this one), infer what English word or sentence is being built.
+
+Respond ONLY with valid JSON in exactly this format (no markdown, no extra text):
+{{"sign": "LETTER_OR_NONE", "confidence": 0.0_to_1.0, "current_word": "WORD_SO_FAR", "translation": "full english sentence so far"}}
+
+Rules:
+- "sign": the single uppercase ASL letter (A-Z) or "NONE" if no clear hand sign is visible.
+- "confidence": your confidence between 0.0 and 1.0.
+- "current_word": the letters accumulated so far joined together (e.g. "APPL" while spelling APPLE).
+- "translation": your best guess at the complete English word or phrase being spelled (e.g. "apple").
+  If only one or two letters so far, make your best guess at what word is forming.
+  If no sign detected, return the translation from previous signs unchanged.
+"""
+
 
 class ASLClassifier:
     def __init__(self):
@@ -67,4 +87,43 @@ class ASLClassifier:
             "matches": bool(result.get("matches", False)),
             "detected_sign": str(result.get("detected_sign", "UNKNOWN")).upper(),
             "confidence": float(result.get("confidence", 0.0)),
+        }
+
+    def translate(self, image_bytes: bytes, sign_history: list | None = None) -> dict:
+        """Identify ASL sign and build word/sentence using sign history.
+
+        Returns:
+            {
+                "sign":         str,    # ASL letter detected or "NONE"
+                "confidence":   float,  # 0.0 – 1.0
+                "current_word": str,    # letters accumulated so far
+                "translation":  str,    # full English sentence so far
+            }
+        """
+        history = sign_history or []
+        history_str = " → ".join(history) if history else "None yet"
+        prompt = _TRANSLATE_PROMPT.format(history_str=history_str)
+
+        response = self._client.models.generate_content(
+            model=_MODEL_NAME,
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                prompt,
+            ],
+        )
+        raw = response.text.strip()
+
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        result = json.loads(raw)
+
+        return {
+            "sign": str(result.get("sign", "NONE")).upper(),
+            "confidence": float(result.get("confidence", 0.0)),
+            "current_word": str(result.get("current_word", "")),
+            "translation": str(result.get("translation", "")),
         }

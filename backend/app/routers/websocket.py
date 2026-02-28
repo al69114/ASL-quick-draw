@@ -115,3 +115,35 @@ def setup_websocket_handlers(
         result["player_id"] = sid
         result["room_id"] = room_id
         await sio.emit("classification_result", result, to=sid)
+
+    @sio.on("translate_sign")
+    async def translate_sign(sid, data):
+        """Translate an ASL hand sign to English via Gemini.
+
+        Expected payload:
+            {"image": "<base64-encoded frame>", "sign_history": ["A", "P", ...]}
+
+        Emits 'translation_result' back to the sender:
+            {"sign": str, "confidence": float, "current_word": str, "translation": str}
+        """
+        image_b64: str = data.get("image", "")
+        sign_history: list = data.get("sign_history", [])
+
+        if not image_b64:
+            await sio.emit(
+                "translation_error", {"error": "Missing 'image' in payload"}, to=sid
+            )
+            return
+
+        loop = asyncio.get_event_loop()
+        try:
+            image_bytes = preprocess_image(image_b64)
+            result = await loop.run_in_executor(
+                None, classifier.translate, image_bytes, sign_history
+            )
+        except Exception as exc:
+            logger.error(f"Translation error for {sid}: {exc}")
+            await sio.emit("translation_error", {"error": str(exc)}, to=sid)
+            return
+
+        await sio.emit("translation_result", result, to=sid)
