@@ -1,5 +1,5 @@
 fastapi[all]
-python-socketio
+python-socketio[client]
 uvicorn[standard]
 pydantic-settings
 python-dotenv

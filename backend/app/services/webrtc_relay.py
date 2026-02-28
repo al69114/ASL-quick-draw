@@ -1,6 +1,6 @@
 # WebRTC signaling relay for P2P video
 
-async def setup_webrtc_signaling(sio):
+def setup_webrtc_signaling(sio):
     @sio.on('offer')
     async def handle_offer(sid, data):
         # TODO: Forward SDP offer to other player
