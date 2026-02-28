@@ -59,9 +59,16 @@ function App() {
         setMatchInfo(info);
         setCurrentPage("MATCH");
     };
-    const handleMatchEnd = (won: boolean) => {
+   const handleMatchEnd = (won: boolean) => {
         setDidWin(won);
         setCurrentPage("RESULT");
+
+        // Play the Yeehaw sound if they won the whole showdown
+        if (won) {
+            const yeehaw = new Audio('/yeehaw.mp3');
+            yeehaw.volume = 0.6; // Adjust volume so it doesn't blow out their speakers
+            yeehaw.play().catch(err => console.error("SFX failed:", err));
+        }
     };
     const handleRequeue = () => {
         setMatchInfo(null);
