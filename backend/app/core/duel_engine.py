@@ -1,5 +1,8 @@
+import logging
 import random
 from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 from app.models.showdown_state import DuelRoom, QueueTicket, PlayerElo as PlayerStats
 from app.services.auth0_service import Auth0Service
@@ -30,6 +33,15 @@ class DuelEngine:
         self._rooms[room.room_id] = room
         return room
 
+    def start_round(self, room_id: str) -> DuelRoom:
+        room = self.get_room(room_id)
+        if room is None:
+            raise ValueError(f"Room {room_id} not found")
+        if room.target_sign:  # already had at least one round
+            room.round_number += 1
+        room.target_sign = random.choice(SIGNS)
+        return room
+
     def get_room(self, room_id: str) -> Optional[DuelRoom]:
         return self._rooms.get(room_id)
 
@@ -48,19 +60,26 @@ class DuelEngine:
         winner_id: str,
         loser_id: str,
     ) -> tuple[PlayerStats, PlayerStats]:
-        winner_stats = self._auth0_service.get_user_stats(winner_id)
-        loser_stats = self._auth0_service.get_user_stats(loser_id)
+        try:
+            winner_stats = self._auth0_service.get_user_stats(winner_id)
+            loser_stats = self._auth0_service.get_user_stats(loser_id)
 
-        winner_stats.wins += 1
-        winner_stats.elo += self._elo_delta
+            winner_stats.wins += 1
+            winner_stats.elo += self._elo_delta
 
-        loser_stats.losses += 1
-        loser_stats.elo = max(100, loser_stats.elo - self._elo_delta)
+            loser_stats.losses += 1
+            loser_stats.elo = max(100, loser_stats.elo - self._elo_delta)
 
-        self._auth0_service.update_user_stats(winner_id, winner_stats)
-        self._auth0_service.update_user_stats(loser_id, loser_stats)
+            self._auth0_service.update_user_stats(winner_id, winner_stats)
+            self._auth0_service.update_user_stats(loser_id, loser_stats)
 
-        return winner_stats, loser_stats
+            return winner_stats, loser_stats
+        except Exception as exc:
+            logger.warning(f"Elo update skipped (Auth0 unavailable): {exc}")
+            return (
+                PlayerStats(player_id=winner_id, elo=1000, wins=0, losses=0),
+                PlayerStats(player_id=loser_id, elo=1000, wins=0, losses=0),
+            )
 
     def handle_draw(self, room_id: str, player_id: str, is_correct: bool) -> dict:
         room = self.get_room(room_id)

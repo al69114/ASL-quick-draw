@@ -26,9 +26,11 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
   const eloClaim = authUser?.[ELO_CLAIM];
   const elo = typeof eloClaim === 'number' ? eloClaim : 1000;
 
-  // Keep onMatchFound stable in the event handler closure
+  // Keep onMatchFound and playerId stable in event handler closures
   const onMatchFoundRef = useRef(onMatchFound);
   onMatchFoundRef.current = onMatchFound;
+  const playerIdRef = useRef(playerId);
+  playerIdRef.current = playerId;
 
   useEffect(() => {
     connect();
@@ -41,7 +43,7 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
       onMatchFoundRef.current({
         roomId: data.room_id,
         opponentId: data.opponent_id,
-        playerId: getPlayerId(),
+        playerId: playerIdRef.current ?? '',
         isInitiator: data.is_initiator,
       });
     };

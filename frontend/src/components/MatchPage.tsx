@@ -30,6 +30,7 @@ export const MatchPage: React.FC<MatchPageProps> = ({
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
+  const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [isReadyPressed, setIsReadyPressed] = useState(false);
 
   const { socket } = useDuelSocket();
@@ -45,6 +46,7 @@ export const MatchPage: React.FC<MatchPageProps> = ({
   roundPhaseRef.current = roundPhase;
 
   const drawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Camera setup — runs once on mount.
   useEffect(() => {
@@ -86,13 +88,28 @@ export const MatchPage: React.FC<MatchPageProps> = ({
 
     const onRoundStart = (data: { round_number: number; target_sign: string }) => {
       if (drawTimerRef.current) clearTimeout(drawTimerRef.current);
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
 
       setRoundNumber(data.round_number);
       setTargetSign(data.target_sign);
       setRoundResult(null);
       setIsReadyPressed(false);
-      setRoundPhase('drawing');
-      scheduleSnapshot();
+      setCountdownValue(5);
+      setRoundPhase('countdown');
+
+      let tick = 5;
+      const doTick = () => {
+        tick -= 1;
+        if (tick > 0) {
+          setCountdownValue(tick);
+          countdownTimerRef.current = setTimeout(doTick, 1000);
+        } else {
+          setCountdownValue(null);
+          setRoundPhase('drawing');
+          scheduleSnapshot();
+        }
+      };
+      countdownTimerRef.current = setTimeout(doTick, 1000);
     };
 
     const onRoundResult = (data: {
@@ -127,6 +144,7 @@ export const MatchPage: React.FC<MatchPageProps> = ({
       socket.off('round_result', onRoundResult);
       socket.off('match_complete', onMatchComplete);
       if (drawTimerRef.current) clearTimeout(drawTimerRef.current);
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
     };
   }, [socket, playerId, opponentId, onMatchEnd, scheduleSnapshot]);
 
@@ -142,6 +160,7 @@ export const MatchPage: React.FC<MatchPageProps> = ({
         isInitiator={isInitiator}
         targetSign={targetSign}
         roundPhase={roundPhase}
+        countdownValue={countdownValue}
         roundNumber={roundNumber}
         playerScore={playerScore}
         opponentScore={opponentScore}
