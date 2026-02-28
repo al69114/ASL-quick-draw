@@ -8,38 +8,55 @@ interface QuickDrawCallbacks {
     onConnectionLost?: () => void;
 }
 
+// Lower resolution keeps per-frame size small while still being readable for ASL.
+const FRAME_INTERVAL_MS = 100; // 10 fps
+const FRAME_WIDTH = 320;
+const FRAME_HEIGHT = 240;
+const JPEG_QUALITY = 0.5;
+
 export const useQuickDraw = (
     socket: Socket | null,
     callbacks?: QuickDrawCallbacks,
 ) => {
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-    const peerConnection = useRef<RTCPeerConnection | null>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement>(null);
-    const iceCandidateBuffer = useRef<RTCIceCandidateInit[]>([]);
+    // Opponent frames arrive as JPEG data-URLs and are painted into an <img>.
+    const remoteImgRef = useRef<HTMLImageElement>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Reuse one off-screen canvas across frames to avoid repeated allocation.
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-    // Ref so callbacks never cause useCallbacks to get new references
+    // Keep socket in a ref so callbacks always access the latest value without
+    // becoming new function references that trigger unnecessary re-renders.
+    const socketRef = useRef(socket);
+    useEffect(() => {
+        socketRef.current = socket;
+    }, [socket]);
+
     const callbacksRef = useRef(callbacks);
     callbacksRef.current = callbacks;
 
-    // Sync streams to video elements whenever they change — avoids the race
-    // where getUserMedia resolves before the DOM ref is attached
+    // Sync local camera stream to the video element.
     useEffect(() => {
-        if (localVideoRef.current)
-            localVideoRef.current.srcObject = localStream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
     }, [localStream]);
 
+    // Paint incoming opponent frames into the <img> element.
     useEffect(() => {
-        if (remoteVideoRef.current)
-            remoteVideoRef.current.srcObject = remoteStream;
-    }, [remoteStream]);
+        if (!socket) return;
+        const handleFrame = ({ frame }: { frame: string }) => {
+            if (remoteImgRef.current) remoteImgRef.current.src = frame;
+        };
+        socket.on("video_frame", handleFrame);
+        return () => {
+            socket.off("video_frame", handleFrame);
+        };
+    }, [socket]);
 
-    // Clean up peer connection and local tracks on unmount
+    // Stop streaming and release the camera on unmount.
     useEffect(() => {
         return () => {
-            peerConnection.current?.close();
-            peerConnection.current = null;
+            if (intervalRef.current) clearInterval(intervalRef.current);
             localStream?.getTracks().forEach((t) => t.stop());
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -52,7 +69,11 @@ export const useQuickDraw = (
                 );
             }
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    frameRate: { ideal: 30 },
+                },
                 audio: false,
             });
             setLocalStream(stream);
@@ -62,107 +83,43 @@ export const useQuickDraw = (
         }
     }, []);
 
-    const setupPeerConnection = useCallback(
-        (roomId: string, stream: MediaStream) => {
-            const pc = new RTCPeerConnection({
-                iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-            });
-            peerConnection.current = pc;
-
-            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-            pc.ontrack = (event) => {
-                setRemoteStream(event.streams[0]);
-            };
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate && socket) {
-                    socket.emit("webrtc_ice_candidate", {
-                        room_id: roomId,
-                        candidate: event.candidate,
-                    });
-                }
-            };
-
-            pc.onconnectionstatechange = () => {
-                // 'disconnected' is transient and may recover — only treat 'failed' as fatal
-                if (pc.connectionState === "failed") {
-                    callbacksRef.current?.onConnectionLost?.();
-                }
-            };
-
-            return pc;
-        },
-        [socket],
-    );
-
-    const createOffer = useCallback(
-        async (roomId: string) => {
-            if (!peerConnection.current || !socket) return;
-            const offer = await peerConnection.current.createOffer();
-            await peerConnection.current.setLocalDescription(offer);
-            socket.emit("webrtc_offer", { room_id: roomId, offer });
-        },
-        [socket],
-    );
-
-    const drainIceCandidateBuffer = useCallback(async () => {
-        const pc = peerConnection.current;
-        if (!pc) return;
-        for (const candidate of iceCandidateBuffer.current) {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    // Begin capturing and sending frames to the server, which relays them to
+    // the opponent. Call stopFrameStream() to tear this down.
+    const startFrameStream = useCallback((roomId: string) => {
+        if (!canvasRef.current) {
+            canvasRef.current = document.createElement("canvas");
+            canvasRef.current.width = FRAME_WIDTH;
+            canvasRef.current.height = FRAME_HEIGHT;
         }
-        iceCandidateBuffer.current = [];
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d")!;
+
+        if (intervalRef.current) clearInterval(intervalRef.current);
+
+        intervalRef.current = setInterval(() => {
+            const video = localVideoRef.current;
+            const sock = socketRef.current;
+            // readyState >= 2 (HAVE_CURRENT_DATA) means there's a frame to draw.
+            if (!video || !sock || video.readyState < 2) return;
+            ctx.drawImage(video, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+            const frame = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+            sock.emit("video_frame", { room_id: roomId, frame });
+        }, FRAME_INTERVAL_MS);
     }, []);
 
-    const handleOffer = useCallback(
-        async (roomId: string, offer: RTCSessionDescriptionInit) => {
-            if (!peerConnection.current || !socket) return;
-            await peerConnection.current.setRemoteDescription(
-                new RTCSessionDescription(offer),
-            );
-            await drainIceCandidateBuffer();
-            const answer = await peerConnection.current.createAnswer();
-            await peerConnection.current.setLocalDescription(answer);
-            socket.emit("webrtc_answer", { room_id: roomId, answer });
-        },
-        [socket, drainIceCandidateBuffer],
-    );
-
-    const handleAnswer = useCallback(
-        async (answer: RTCSessionDescriptionInit) => {
-            if (!peerConnection.current) return;
-            await peerConnection.current.setRemoteDescription(
-                new RTCSessionDescription(answer),
-            );
-            await drainIceCandidateBuffer();
-        },
-        [drainIceCandidateBuffer],
-    );
-
-    const handleIceCandidate = useCallback(
-        async (candidate: RTCIceCandidateInit) => {
-            const pc = peerConnection.current;
-            if (!pc || !pc.remoteDescription) {
-                // Buffer until remote description is set
-                iceCandidateBuffer.current.push(candidate);
-                return;
-            }
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        },
-        [],
-    );
+    const stopFrameStream = useCallback(() => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+    }, []);
 
     return {
         localVideoRef,
-        remoteVideoRef,
+        remoteImgRef,
         localStream,
-        remoteStream,
         initializeMedia,
-        setupPeerConnection,
-        createOffer,
-        handleOffer,
-        handleAnswer,
-        handleIceCandidate,
+        startFrameStream,
+        stopFrameStream,
     };
 };

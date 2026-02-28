@@ -20,16 +20,18 @@ export const MatchPage: React.FC<MatchPageProps> = ({
   const [countdown, setCountdown] = useState<number | null>(5);
   const [targetSign, setTargetSign] = useState<string | null>(null);
 
+  // End the match once a player reaches 3 points. Must be a separate effect so
+  // onMatchEnd is never called inside a state updater (which runs during render).
+  React.useEffect(() => {
+    if (playerScore >= 3) onMatchEnd(true);
+  }, [playerScore, onMatchEnd]);
+
   // Mock round flow — remove when hooking up game state events in Phase 5
   React.useEffect(() => {
     if (countdown === 0) {
       setTargetSign('B');
       setTimeout(() => {
-        setPlayerScore(prev => {
-          const newScore = prev + 1;
-          if (newScore >= 3) onMatchEnd(true);
-          return newScore;
-        });
+        setPlayerScore(prev => prev + 1);
         setCountdown(5);
         setRoundNumber(prev => prev + 1);
         setTargetSign(null);
@@ -38,7 +40,7 @@ export const MatchPage: React.FC<MatchPageProps> = ({
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     }
-  }, [countdown, onMatchEnd]);
+  }, [countdown]);
 
   return (
     <div className="match-page-container">
