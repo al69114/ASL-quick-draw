@@ -210,6 +210,31 @@ def setup_websocket_handlers(
         await sio.emit("round_result", round_result_payload, to=room.player2_sid)
         logger.info(f"Round result in room {room_id}: winner={winner_id}, scores={scores}")
 
+    @sio.on("tutorial_classify")
+    async def tutorial_classify(sid, data):
+        """Classify a hand sign for solo practice/tutorial mode (no room required)."""
+        image_b64: str = data.get("image", "")
+        target_sign: str = data.get("target_sign", "")
+
+        if not image_b64 or not target_sign:
+            await sio.emit(
+                "tutorial_error",
+                {"error": "Missing 'image' or 'target_sign' in payload"},
+                to=sid,
+            )
+            return
+
+        try:
+            image_bytes = await asyncio.to_thread(preprocess_image, image_b64)
+            result = await classifier.classify(image_bytes, target_sign)
+            logger.info(f"Tutorial classification: {result}")
+        except Exception as exc:
+            logger.error(f"Tutorial classification error for {sid}: {exc}")
+            await sio.emit("tutorial_error", {"error": str(exc)}, to=sid)
+            return
+
+        await sio.emit("tutorial_result", result, to=sid)
+
     @sio.on("player_ready")
     async def player_ready(sid, data):
         """Called when a player clicks Continue after seeing a round result.
