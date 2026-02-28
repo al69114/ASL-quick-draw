@@ -7,6 +7,7 @@ interface DuelArenaProps {
   isInitiator: boolean;
   targetSign: string | null;
   roundPhase: RoundPhase;
+  countdownValue: number | null;
   roundNumber: number;
   playerScore: number;
   opponentScore: number;
@@ -23,6 +24,7 @@ export const DualArena: React.FC<DuelArenaProps> = ({
   isInitiator: _isInitiator,
   targetSign,
   roundPhase,
+  countdownValue,
   roundNumber,
   playerScore,
   opponentScore,
@@ -35,6 +37,16 @@ export const DualArena: React.FC<DuelArenaProps> = ({
 }) => {
   const renderStatus = () => {
     switch (roundPhase) {
+      case 'countdown':
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-2xl text-yellow-300 font-bold">Get ready...</p>
+            <span className="text-9xl font-bold text-white drop-shadow-2xl">
+              {countdownValue}
+            </span>
+          </div>
+        );
+
       case 'drawing':
         return targetSign ? (
           <div className="wanted-poster bg-yellow-100 border-4 border-yellow-800 inline-block p-6 mx-auto">

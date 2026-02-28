@@ -1,9 +1,10 @@
+import asyncio
 import os
 import json
 from google import genai
 from google.genai import types
 
-_MODEL_NAME = "gemini-3-flash-preview"
+_MODEL_NAME = "gemini-2.5-pro"
 
 _PROMPT_TEMPLATE = """You are an ASL (American Sign Language) hand sign expert.
 
@@ -33,7 +34,7 @@ class ASLClassifier:
             http_options=types.HttpOptions(api_version="v1beta"),
         )
 
-    def classify(self, image_bytes: bytes, target_sign: str) -> dict:
+    async def classify(self, image_bytes: bytes, target_sign: str) -> dict:
         """Validate whether *image_bytes* shows the ASL hand sign for *target_sign*.
 
         Returns:
@@ -46,7 +47,9 @@ class ASLClassifier:
         target = target_sign.upper().strip()
         prompt = _PROMPT_TEMPLATE.format(target=target)
 
-        response = self._client.models.generate_content(
+        # Run the blocking SDK call in a thread so it never blocks the event loop.
+        response = await asyncio.to_thread(
+            self._client.models.generate_content,
             model=_MODEL_NAME,
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),

@@ -1,4 +1,4 @@
-export type RoundPhase = 'waiting' | 'drawing' | 'analyzing' | 'result';
+export type RoundPhase = 'waiting' | 'countdown' | 'drawing' | 'analyzing' | 'result';
 
 export interface RoundResult {
   winnerId: string | null;
