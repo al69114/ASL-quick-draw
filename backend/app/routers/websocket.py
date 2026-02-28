@@ -134,6 +134,25 @@ def setup_websocket_handlers(
             return
 
         loop = asyncio.get_event_loop()
+        player_id = sid_to_player.get(sid)
+        room = duel_engine.get_room(room_id)
+
+        if not player_id:
+            await sio.emit(
+                "classification_error",
+                {"error": "Unknown player session"},
+                to=sid,
+            )
+            return
+
+        if not room:
+            await sio.emit(
+                "classification_error",
+                {"error": f"Room {room_id} not found"},
+                to=sid,
+            )
+            return
+
         try:
             image_bytes = preprocess_image(image_b64)
             result = await loop.run_in_executor(
@@ -145,86 +164,21 @@ def setup_websocket_handlers(
             await sio.emit("classification_error", {"error": str(exc)}, to=sid)
             return
 
-        logger.info(
-            f"Player {player_id} in room {room_id}: "
-            f"detected={result['detected_sign']} matches={result['matches']}"
+        result["player_id"] = player_id
+        result["room_id"] = room_id
+        await sio.emit("classification_result", result, to=sid)
+
+        draw_state = await asyncio.to_thread(
+            duel_engine.handle_draw,
+            room_id,
+            player_id,
+            bool(result["matches"]),
         )
 
-        # Accumulate results for this round.
-        if room_id not in _pending_results:
-            _pending_results[room_id] = {}
-        _pending_results[room_id][player_id] = {
-            "matches": result["matches"],
-            "detected_sign": result["detected_sign"],
-        }
+        if draw_state["status"] == "round_won":
+            await sio.emit("round_result", draw_state, to=room.player1_sid)
+            await sio.emit("round_result", draw_state, to=room.player2_sid)
 
-        # Delegate scoring once we have both players' results.
-        outcome = duel_engine.handle_draw(
-            room_id, player_id, result["matches"], result["detected_sign"]
-        )
-        if outcome is None:
-            # Still waiting for the other player — nothing more to do.
-            return
-
-        # Clear pending accumulator for this room.
-        _pending_results.pop(room_id, None)
-
-        room = duel_engine.get_room(room_id)
-        if room is None:
-            return
-
-        round_result_payload = {
-            "room_id": room_id,
-            "winner_id": outcome["winner_id"],
-            "player_results": outcome["player_results"],
-            "scores": outcome["scores"],
-            "is_replay": outcome["is_replay"],
-        }
-        await sio.emit("round_result", round_result_payload, to=room.player1_sid)
-        await sio.emit("round_result", round_result_payload, to=room.player2_sid)
-        logger.info(
-            f"Round result in room {room_id}: winner={outcome['winner_id']} "
-            f"scores={outcome['scores']} replay={outcome['is_replay']}"
-        )
-
-        if outcome["match_over"]:
-            match_complete_payload = {
-                "room_id": room_id,
-                "winner_id": outcome["match_winner_id"],
-                "final_scores": outcome["scores"],
-            }
-            await sio.emit("match_complete", match_complete_payload, to=room.player1_sid)
-            await sio.emit("match_complete", match_complete_payload, to=room.player2_sid)
-            logger.info(
-                f"Match complete in room {room_id}: winner={outcome['match_winner_id']}"
-            )
-            duel_engine.close_room(room_id)
-
-    @sio.on("player_ready")
-    async def player_ready(sid, data):
-        """Signal that a player has clicked 'Continue' after a round result.
-
-        Expected payload: { "room_id": str, "player_id": str }
-
-        When both players in the room are ready, emits 'round_start' to both.
-        """
-        room_id: str = data.get("room_id", "")
-        player_id: str = data.get("player_id") or sid_to_player.get(sid, sid)
-
-        both_ready = duel_engine.handle_player_ready(room_id, player_id)
-        logger.info(f"Player {player_id} ready in room {room_id} (both={both_ready})")
-
-        if both_ready:
-            room = duel_engine.start_round(room_id)
-            if room is None:
-                return
-            round_payload = {
-                "room_id": room.room_id,
-                "round_number": room.round_number,
-                "target_sign": room.target_sign,
-            }
-            await sio.emit("round_start", round_payload, to=room.player1_sid)
-            await sio.emit("round_start", round_payload, to=room.player2_sid)
-            logger.info(
-                f"Round {room.round_number} started in room {room_id}: sign={room.target_sign}"
-            )
+        if draw_state["status"] == "match_finished":
+            await sio.emit("match_result", draw_state, to=room.player1_sid)
+            await sio.emit("match_result", draw_state, to=room.player2_sid)

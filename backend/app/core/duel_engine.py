@@ -1,14 +1,23 @@
 import random
 from typing import Dict, Optional
 
-from app.models.showdown_state import DuelRoom, QueueTicket
+from app.models.showdown_state import DuelRoom, QueueTicket, PlayerElo as PlayerStats
+from app.services.auth0_service import Auth0Service
 
 SIGNS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 
 class DuelEngine:
-    def __init__(self):
+    def __init__(
+        self,
+        auth0_service: Auth0Service,
+        wins_to_finish: int = 3,
+        elo_delta: int = 25,
+    ):
         self._rooms: Dict[str, DuelRoom] = {}  # room_id -> DuelRoom
+        self._auth0_service = auth0_service
+        self._wins_to_finish = wins_to_finish
+        self._elo_delta = elo_delta
 
     def start_duel(self, t1: QueueTicket, t2: QueueTicket) -> DuelRoom:
         room = DuelRoom(
@@ -27,88 +36,71 @@ class DuelEngine:
     def close_room(self, room_id: str) -> None:
         self._rooms.pop(room_id, None)
 
-    def start_round(self, room_id: str) -> DuelRoom:
-        """Pick a new target sign and reset per-round tracking."""
-        room = self._rooms[room_id]
-        room.target_sign = random.choice(SIGNS)
-        room.round_results = {}
-        room.detected_signs = {}
-        room.ready_players = []
-        return room
+    def _get_opponent_id(self, room: DuelRoom, player_id: str) -> str:
+        if player_id == room.player1_id:
+            return room.player2_id
+        if player_id == room.player2_id:
+            return room.player1_id
+        raise ValueError(f"Player {player_id} is not part of room {room.room_id}")
 
-    def handle_draw(
-        self, room_id: str, player_id: str, is_correct: bool, detected_sign: str
-    ) -> Optional[dict]:
-        """Record a player's classification result.
+    def _apply_match_result(
+        self,
+        winner_id: str,
+        loser_id: str,
+    ) -> tuple[PlayerStats, PlayerStats]:
+        winner_stats = self._auth0_service.get_user_stats(winner_id)
+        loser_stats = self._auth0_service.get_user_stats(loser_id)
 
-        Returns a round outcome dict once both players have submitted, else None.
-        Outcome keys: winner_id, player_results, scores, is_replay, match_over,
-                      match_winner_id, round_number.
-        """
-        room = self._rooms.get(room_id)
+        winner_stats.wins += 1
+        winner_stats.elo += self._elo_delta
+
+        loser_stats.losses += 1
+        loser_stats.elo = max(100, loser_stats.elo - self._elo_delta)
+
+        self._auth0_service.update_user_stats(winner_id, winner_stats)
+        self._auth0_service.update_user_stats(loser_id, loser_stats)
+
+        return winner_stats, loser_stats
+
+    def handle_draw(self, room_id: str, player_id: str, is_correct: bool) -> dict:
+        room = self.get_room(room_id)
         if room is None:
-            return None
+            raise ValueError(f"Room {room_id} not found")
 
-        room.round_results[player_id] = is_correct
-        room.detected_signs[player_id] = detected_sign
+        if player_id not in room.scores:
+            raise ValueError(f"Player {player_id} is not part of room {room_id}")
 
-        if len(room.round_results) < 2:
-            return None  # waiting for the second player
+        if not is_correct:
+            return {
+                "status": "miss",
+                "room_id": room_id,
+                "scores": room.scores.copy(),
+            }
 
-        p1, p2 = room.player1_id, room.player2_id
-        p1_correct = room.round_results.get(p1, False)
-        p2_correct = room.round_results.get(p2, False)
-        s1, s2 = room.scores[p1], room.scores[p2]
+        room.scores[player_id] += 1
 
-        is_replay = False
-        winner_id = None
+        if room.scores[player_id] < self._wins_to_finish:
+            return {
+                "status": "round_won",
+                "room_id": room_id,
+                "round_winner_id": player_id,
+                "scores": room.scores.copy(),
+            }
 
-        if not p1_correct and not p2_correct:
-            is_replay = True
-        elif p1_correct and p2_correct:
-            if s1 == 2 and s2 == 2:
-                is_replay = True  # 2-2 tie — replay rather than 3-3 draw
-            else:
-                room.scores[p1] += 1
-                room.scores[p2] += 1
-        elif p1_correct:
-            room.scores[p1] += 1
-            winner_id = p1
-        else:
-            room.scores[p2] += 1
-            winner_id = p2
+        loser_id = self._get_opponent_id(room, player_id)
+        winner_stats, loser_stats = self._apply_match_result(player_id, loser_id)
 
-        if not is_replay:
-            room.round_number += 1
+        room.status = "finished"
 
-        match_over = room.scores[p1] >= 3 or room.scores[p2] >= 3
-        match_winner_id = (
-            p1 if room.scores[p1] >= 3 else (p2 if room.scores[p2] >= 3 else None)
-        )
-        if match_over:
-            room.status = "finished"
-
-        return {
-            "winner_id": winner_id,
-            "player_results": {
-                p1: {"matches": p1_correct, "detected_sign": room.detected_signs.get(p1, "UNKNOWN")},
-                p2: {"matches": p2_correct, "detected_sign": room.detected_signs.get(p2, "UNKNOWN")},
-            },
-            "scores": dict(room.scores),
-            "is_replay": is_replay,
-            "match_over": match_over,
-            "match_winner_id": match_winner_id,
-            "round_number": room.round_number,
+        result = {
+            "status": "match_finished",
+            "room_id": room_id,
+            "winner_id": player_id,
+            "loser_id": loser_id,
+            "scores": room.scores.copy(),
+            "winner_stats": winner_stats.model_dump(),
+            "loser_stats": loser_stats.model_dump(),
         }
 
-    def handle_player_ready(self, room_id: str, player_id: str) -> bool:
-        """Mark a player as ready for the next round.
-
-        Returns True when both players in the room are ready.
-        """
-        room = self._rooms.get(room_id)
-        if room is None:
-            return False
-        if player_id not in room.ready_players:
-            room.ready_players.append(player_id)
-        return len(room.ready_players) >= 2
+        self.close_room(room_id)
+        return result
