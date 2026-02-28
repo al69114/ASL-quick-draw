@@ -104,6 +104,25 @@ def setup_websocket_handlers(
             return
 
         loop = asyncio.get_event_loop()
+        player_id = sid_to_player.get(sid)
+        room = duel_engine.get_room(room_id)
+
+        if not player_id:
+            await sio.emit(
+                "classification_error",
+                {"error": "Unknown player session"},
+                to=sid,
+            )
+            return
+
+        if not room:
+            await sio.emit(
+                "classification_error",
+                {"error": f"Room {room_id} not found"},
+                to=sid,
+            )
+            return
+
         try:
             image_bytes = preprocess_image(image_b64)
             result = await loop.run_in_executor(
@@ -114,6 +133,21 @@ def setup_websocket_handlers(
             await sio.emit("classification_error", {"error": str(exc)}, to=sid)
             return
 
-        result["player_id"] = sid
+        result["player_id"] = player_id
         result["room_id"] = room_id
         await sio.emit("classification_result", result, to=sid)
+
+        draw_state = await asyncio.to_thread(
+            duel_engine.handle_draw,
+            room_id,
+            player_id,
+            bool(result["matches"]),
+        )
+
+        if draw_state["status"] == "round_won":
+            await sio.emit("round_result", draw_state, to=room.player1_sid)
+            await sio.emit("round_result", draw_state, to=room.player2_sid)
+
+        if draw_state["status"] == "match_finished":
+            await sio.emit("match_result", draw_state, to=room.player1_sid)
+            await sio.emit("match_result", draw_state, to=room.player2_sid)

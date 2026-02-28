@@ -5,6 +5,7 @@ import socketio
 from app.core.duel_engine import DuelEngine
 from app.core.elo_matchmaker import EloMatchmaker
 from app.routers.websocket import setup_websocket_handlers
+from app.services.auth0_service import Auth0Service
 from app.services.webrtc_relay import setup_video_relay
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,8 @@ socket_app = socketio.ASGIApp(sio)
 
 # Singletons shared across all socket events
 matchmaker = EloMatchmaker()
-duel_engine = DuelEngine()
+auth0_service = Auth0Service()
+duel_engine = DuelEngine(auth0_service=auth0_service)
 
 # Maps sid -> player_id for disconnect cleanup
 _sid_to_player: dict[str, str] = {}

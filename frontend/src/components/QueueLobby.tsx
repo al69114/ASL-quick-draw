@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { useDuelSocket } from '../hooks/useDuelSocket';
 
 interface MatchInfo {
@@ -11,30 +12,18 @@ interface QueueLobbyProps {
   onMatchFound: (info: MatchInfo) => void;
 }
 
-// Generate or retrieve a per-tab player ID (sessionStorage = unique per tab)
-function generateId(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  // Fallback for non-secure contexts (plain HTTP on LAN)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
-
-function getPlayerId(): string {
-  let id = sessionStorage.getItem('player_id');
-  if (!id) {
-    id = generateId();
-    sessionStorage.setItem('player_id', id);
-  }
-  return id;
-}
+const ELO_CLAIM = 'https://quickdraw-asl.example.com/elo';
 
 export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
   const [isQueueing, setIsQueueing] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth0();
   const { socket, connect } = useDuelSocket();
+  const authUser = user as Record<string, unknown> | undefined;
+  const playerId = typeof authUser?.sub === 'string' ? authUser.sub : null;
+  const eloClaim = authUser?.[ELO_CLAIM];
+  const elo = typeof eloClaim === 'number' ? eloClaim : 1000;
 
   // Keep onMatchFound stable in the event handler closure
   const onMatchFoundRef = useRef(onMatchFound);
@@ -76,14 +65,21 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
   }, [socket, connect]);
 
   const handleQueue = () => {
+    if (!playerId) {
+      setError('Missing Auth0 user identifier.');
+      return;
+    }
+
     setIsQueueing(true);
     setError(null);
     setQueuePosition(null);
-    socket.emit('enter_queue', { player_id: getPlayerId(), elo: 1000 });
+    socket.emit('enter_queue', { player_id: playerId, elo });
   };
 
   const handleLeaveQueue = () => {
-    socket.emit('leave_queue', { player_id: getPlayerId() });
+    if (playerId) {
+      socket.emit('leave_queue', { player_id: playerId });
+    }
     setIsQueueing(false);
     setQueuePosition(null);
   };
@@ -99,7 +95,7 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
         </h2>
 
         <p className="text-xl mb-8 font-mono text-gray-300">
-          Rank #47 (1250 Elo)
+          Current Elo: {elo}
         </p>
 
         {error && (

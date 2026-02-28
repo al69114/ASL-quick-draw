@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface ScoreboardProps {
   roundNumber: number;
@@ -6,7 +7,14 @@ interface ScoreboardProps {
   opponentScore: number;
 }
 
+const ELO_CLAIM = 'https://quickdraw-asl.example.com/elo';
+
 const Scoreboard: React.FC<ScoreboardProps> = ({ roundNumber, playerScore, opponentScore }) => {
+  const { user } = useAuth0();
+  const authUser = user as Record<string, unknown> | undefined;
+  const eloClaim = authUser?.[ELO_CLAIM];
+  const elo = typeof eloClaim === 'number' ? eloClaim : 1000;
+
   // Best of 5 logic means max score is 3
   const renderBullets = (score: number) => {
     return Array.from({ length: 3 }).map((_, i) => (
@@ -28,6 +36,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ roundNumber, playerScore, oppon
           Round {roundNumber}
         </h1>
         <p className="text-gray-300 font-mono text-sm mt-1">Best of 5 Showdown</p>
+        <p className="text-yellow-300 font-mono text-sm mt-1">Elo: {elo}</p>
       </div>
 
       <div className="opponent-score flex gap-2 flex-row-reverse">
