@@ -178,6 +178,31 @@ export const TutorialPage: React.FC<TutorialPageProps> = ({ onBack }) => {
             {/* Hidden canvas for snapshot capture */}
             <canvas ref={canvasRef} className="hidden" />
 
+            {/* ASL reference image — shown below camera when answer is wrong */}
+            {result && !result.matches && (
+              <div className="w-full max-w-md bg-black bg-opacity-60 border-4 border-yellow-800 rounded-lg p-4 flex flex-col items-center gap-2">
+                <div className="text-yellow-500 font-mono text-xs uppercase tracking-widest">
+                  ◆ Reference Sign for <strong className="text-white text-sm">{currentLetter}</strong> ◆
+                </div>
+                <img
+                  src={`https://www.lifeprint.com/asl101/fingerspelling/abc-gifs/${currentLetter.toLowerCase()}.gif`}
+                  alt={`ASL sign for letter ${currentLetter}`}
+                  className="w-40 h-40 object-contain rounded"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).replaceWith(
+                      Object.assign(document.createElement('p'), {
+                        className: 'text-gray-500 text-xs font-mono py-4',
+                        textContent: 'Reference image unavailable',
+                      })
+                    );
+                  }}
+                />
+                <div className="text-gray-400 font-mono text-xs">
+                  Try matching this hand position
+                </div>
+              </div>
+            )}
+
             {/* Check button */}
             <button
               onClick={captureAndClassify}
