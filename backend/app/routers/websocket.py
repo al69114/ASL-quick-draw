@@ -44,6 +44,7 @@ def setup_websocket_handlers(
                     "room_id": room.room_id,
                     "opponent_id": t2.player_id,
                     "opponent_elo": t2.elo,
+                    "is_initiator": True,
                 },
                 to=t1.sid,
             )
@@ -53,6 +54,7 @@ def setup_websocket_handlers(
                     "room_id": room.room_id,
                     "opponent_id": t1.player_id,
                     "opponent_elo": t1.elo,
+                    "is_initiator": False,
                 },
                 to=t2.sid,
             )

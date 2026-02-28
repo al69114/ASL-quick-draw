@@ -5,11 +5,14 @@ import socketio
 from app.core.duel_engine import DuelEngine
 from app.core.elo_matchmaker import EloMatchmaker
 from app.routers.websocket import setup_websocket_handlers
-from app.services.webrtc_relay import setup_webrtc_signaling
+from app.services.webrtc_relay import setup_video_relay
 
 logger = logging.getLogger(__name__)
 
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+# cors_allowed_origins=[] disables python-socketio's built-in CORS so that
+# FastAPI's CORSMiddleware (configured in main.py) handles it exclusively.
+# Do NOT change this to "*" — that causes duplicate CORS headers.
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=[])
 socket_app = socketio.ASGIApp(sio)
 
 # Singletons shared across all socket events
@@ -36,4 +39,4 @@ async def disconnect(sid):
 
 # Wire up event handlers at import time
 setup_websocket_handlers(sio, matchmaker, duel_engine, _sid_to_player)
-setup_webrtc_signaling(sio)
+setup_video_relay(sio, duel_engine)

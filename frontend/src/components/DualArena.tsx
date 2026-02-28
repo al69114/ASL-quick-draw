@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useQuickDraw } from '../hooks/useQuickDraw';
+import { useDuelSocket } from '../hooks/useDuelSocket';
 import Scoreboard from './Scoreboard';
 
 interface DuelArenaProps {
   matchId: string;
+  isInitiator: boolean;
   targetSign: string | null;
   countdown: number | null;
   roundNumber: number;
@@ -11,40 +13,61 @@ interface DuelArenaProps {
   opponentScore: number;
 }
 
-export const DuelArena: React.FC<DuelArenaProps> = ({
+export const DualArena: React.FC<DuelArenaProps> = ({
   matchId,
   targetSign,
   countdown,
   roundNumber,
   playerScore,
-  opponentScore
+  opponentScore,
 }) => {
   const [camError, setCamError] = useState<string | null>(null);
-  
-  const { localVideoRef, remoteVideoRef, initializeMedia } = useQuickDraw({
-    onRoundStart: () => console.log("Round Started!"),
-    onRoundEnd: () => console.log("Round Ended!"),
-    onConnectionLost: () => alert("Partner disconnected!")
+  const { socket } = useDuelSocket();
+
+  const {
+    localVideoRef,
+    remoteImgRef,
+    initializeMedia,
+    startFrameStream,
+    stopFrameStream,
+  } = useQuickDraw(socket, {
+    onRoundStart: () => console.log('Round Started!'),
+    onRoundEnd: () => console.log('Round Ended!'),
+    onConnectionLost: () => alert('Partner disconnected!'),
   });
 
-  // Ask for camera permissions as soon as the match arena loads
   useEffect(() => {
-    initializeMedia().catch(err => {
-      console.error(err);
-      setCamError("Camera permission denied or unavailable.");
-    });
-  }, [initializeMedia]);
+    let active = true;
+
+    const init = async () => {
+      const stream = await initializeMedia().catch(err => {
+        console.error(err);
+        setCamError('Camera permission denied or unavailable.');
+        return undefined;
+      });
+
+      if (!stream || !active) return;
+      startFrameStream(matchId);
+    };
+
+    init();
+
+    return () => {
+      active = false;
+      stopFrameStream();
+    };
+  }, [matchId, initializeMedia, startFrameStream, stopFrameStream]);
 
   return (
     <div className="saloon-container bg-wood-pattern min-h-screen p-8 flex flex-col">
       {/* Scoreboard and round indicator */}
-      <Scoreboard 
-        roundNumber={roundNumber} 
-        playerScore={playerScore} 
-        opponentScore={opponentScore} 
-      />  
+      <Scoreboard
+        roundNumber={roundNumber}
+        playerScore={playerScore}
+        opponentScore={opponentScore}
+      />
 
-      {/* Prompt (“Make sign: B”) and countdown */}
+      {/* Prompt ("Make sign: B") and countdown */}
       <div className="match-status text-center my-8 flex-grow flex flex-col justify-center">
         {countdown !== null && countdown > 0 ? (
           <h2 className="text-6xl text-red-600 font-bold drop-shadow-md">HIGH NOON IN: {countdown}</h2>
@@ -59,7 +82,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         )}
       </div>
 
-      {/* Two video elements side by side (self vs opponent) */}
+      {/* Two feeds side by side: local camera (video) and opponent (img) */}
       <div className="flex flex-row justify-center gap-8 mt-auto mb-4">
         <div className="video-container relative border-8 border-yellow-900 rounded-md bg-black shadow-2xl w-96 h-72 flex items-center justify-center">
           <span className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-3 py-1 text-xl font-bold rounded z-10">
@@ -74,11 +97,15 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             Partner's Feed
           </span>
           <p className="text-gray-500 font-mono z-0">Waitin' on partner...</p>
-          <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
+          <img
+            ref={remoteImgRef}
+            alt="Partner's feed"
+            className="absolute inset-0 w-full h-full object-cover z-10"
+          />
         </div>
       </div>
     </div>
   );
 };
 
-export default DuelArena;
+export default DualArena;
