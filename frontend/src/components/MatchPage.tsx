@@ -11,7 +11,7 @@ interface MatchPageProps {
   opponentId: string;
   playerId: string;
   isInitiator: boolean;
-  onMatchEnd: (won: boolean) => void;
+  onMatchEnd: (won: boolean, eloChange: number) => void;
 }
 
 // After DRAW! appears, wait this long before capturing the snapshot.
@@ -145,10 +145,18 @@ export const MatchPage: React.FC<MatchPageProps> = ({
       // -------------------------------------------------------
     };
 
-    const onMatchComplete = (data: { winner_id: string; final_scores: Record<string, number> }) => {
+    const onMatchComplete = (data: {
+      winner_id: string;
+      final_scores: Record<string, number>;
+      winner_stats?: { elo_delta: number };
+      loser_stats?: { elo_delta: number };
+    }) => {
       setPlayerScore(data.final_scores[playerId] ?? 0);
       setOpponentScore(data.final_scores[opponentId] ?? 0);
-      onMatchEnd(data.winner_id === playerId);
+      const won = data.winner_id === playerId;
+      const myStats = won ? data.winner_stats : data.loser_stats;
+      const eloChange = myStats?.elo_delta ?? (won ? 25 : -20);
+      onMatchEnd(won, eloChange);
     };
 
     socket.on('round_start', onRoundStart);

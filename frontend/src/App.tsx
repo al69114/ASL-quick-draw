@@ -4,7 +4,7 @@ import LandingPage from "./components/LandingPage";
 import QueueLobby from "./components/QueueLobby";
 import MatchPage from "./components/MatchPage";
 import ResultPage from "./components/ResultPage";
-import AboutPage from "./components/AboutPage"; 
+import AboutPage from "./components/AboutPage";
 import HowToPlayPage from "./components/HowToPlayPage";
 
 // Added ABOUT to PageState
@@ -19,10 +19,12 @@ interface MatchInfo {
 
 function App() {
     const { isAuthenticated, isLoading } = useAuth0();
-    
+
     // --- THESE ARE THE VARIABLES THAT WENT MISSING! ---
     const [currentPage, setCurrentPage] = useState<PageState>("LOBBY");
     const [didWin, setDidWin] = useState(false);
+    const [eloChange, setEloChange] = useState(0);
+    const [eloAdjustment, setEloAdjustment] = useState(0);
     const [matchInfo, setMatchInfo] = useState<MatchInfo | null>(null);
 
     // --- Audio State and Ref ---
@@ -65,16 +67,18 @@ function App() {
         setMatchInfo(info);
         setCurrentPage("MATCH");
     };
-
-    const handleMatchEnd = (won: boolean) => {
+    const handleMatchEnd = (won: boolean, delta: number) => {
         setDidWin(won);
+        setEloChange(delta);
+        setEloAdjustment((prev) => prev + delta);
         setCurrentPage("RESULT");
 
         // Play the Yeehaw sound if they won the whole showdown
         if (won) {
-            const yeehaw = new Audio('/yeehaw.mp3');
+            const yeehaw = new Audio("/yeehaw.mp3");
             yeehaw.volume = 0.6;
-            yeehaw.play().catch(err => console.error("SFX failed:", err));
+            yeehaw.volume = 0.6;
+            yeehaw.play().catch((err) => console.error("SFX failed:", err));
         }
     };
 
@@ -106,13 +110,11 @@ function App() {
             </button>
 
             {currentPage === "LOBBY" && (
-    <QueueLobby 
-        onMatchFound={handleMatchFound} 
-        onViewAbout={handleViewAbout}
-        onViewHowToPlay={handleViewHowToPlay} // <-- Add this
-    />
-)}
-            
+                <QueueLobby
+                    onMatchFound={handleMatchFound}
+                    eloAdjustment={eloAdjustment}
+                />
+            )}
             {currentPage === "MATCH" && matchInfo && (
                 <MatchPage
                     roomId={matchInfo.roomId}
@@ -122,18 +124,14 @@ function App() {
                     onMatchEnd={handleMatchEnd}
                 />
             )}
-            
+
             {currentPage === "RESULT" && (
-                <ResultPage isWinner={didWin} onRequeue={handleRequeue} />
+                <ResultPage
+                    isWinner={didWin}
+                    eloChange={eloChange}
+                    onRequeue={handleRequeue}
+                />
             )}
-
-            {currentPage === "ABOUT" && (
-                <AboutPage onBack={handleBackToLobby} />
-            )}
-
-            {currentPage === "HOW_TO_PLAY" && (
-    <HowToPlayPage onBack={handleBackToLobby} />
-)}
         </div>
     );
 }

@@ -11,13 +11,21 @@ interface MatchInfo {
 
 interface QueueLobbyProps {
   onMatchFound: (info: MatchInfo) => void;
+<<<<<<< HEAD
   onViewAbout: () => void; 
   onViewHowToPlay: () => void;
+=======
+  eloAdjustment?: number;
+>>>>>>> 736fb72 (Fixed ELO)
 }
 
 const ELO_CLAIM = 'https://quickdraw-asl.example.com/elo';
 
+<<<<<<< HEAD
 export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbout, onViewHowToPlay }) => {
+=======
+export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, eloAdjustment = 0 }) => {
+>>>>>>> 736fb72 (Fixed ELO)
   const [isQueueing, setIsQueueing] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +34,8 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbou
   const authUser = user as Record<string, unknown> | undefined;
   const playerId = typeof authUser?.sub === 'string' ? authUser.sub : null;
   const eloClaim = authUser?.[ELO_CLAIM];
-  const elo = typeof eloClaim === 'number' ? eloClaim : 1200;
+  const baseElo = typeof eloClaim === 'number' ? eloClaim : 1200;
+  const elo = baseElo + eloAdjustment;
 
   // Keep onMatchFound and playerId stable in event handler closures
   const onMatchFoundRef = useRef(onMatchFound);

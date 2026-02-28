@@ -2,10 +2,11 @@ import React from 'react';
 
 interface ResultPageProps {
   isWinner: boolean;
+  eloChange: number;
   onRequeue: () => void;
 }
 
-export const ResultPage: React.FC<ResultPageProps> = ({ isWinner, onRequeue }) => {
+export const ResultPage: React.FC<ResultPageProps> = ({ isWinner, eloChange, onRequeue }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-900 bg-wood-pattern p-6">
       <div className={`max-w-2xl w-full text-center border-8 p-12 rounded-xl shadow-2xl ${
@@ -19,7 +20,7 @@ export const ResultPage: React.FC<ResultPageProps> = ({ isWinner, onRequeue }) =
         </h1>
 
         <p className="text-2xl text-gray-300 font-mono mb-8">
-          {isWinner ? "You out-drew 'em. +25 Elo" : "Practice yer draw... -20 Elo"}
+          {isWinner ? `You out-drew 'em. +${eloChange} Elo` : `Practice yer draw... ${eloChange} Elo`}
         </p>
 
         <div className="flex justify-center gap-6 mt-8">
