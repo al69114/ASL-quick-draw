@@ -15,6 +15,8 @@ build/
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
 
 # npm/yarn/pnpm logs
 npm-debug.log*
@@ -29,6 +31,9 @@ pnpm-debug.log*
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+.Python
 
 # Virtual environments
 venv/
@@ -47,3 +52,14 @@ elo.db
 Thumbs.db
 .vscode/
 .idea/
+.next/
+
+# =========================
+# Test artifacts
+# =========================
+tester.png
+*.jpg
+*.jpeg
+*.png
+!frontend/src/**/*.png
+!frontend/public/**/*.png
