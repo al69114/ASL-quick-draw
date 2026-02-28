@@ -114,6 +114,21 @@ export const useQuickDraw = (
         }
     }, []);
 
+    // Capture a single high-quality frame for ASL classification.
+    // Uses a dedicated canvas (separate from the relay stream) at full
+    // camera resolution to give Gemini the clearest possible image.
+    const captureSnapshot = useCallback((): string | null => {
+        const video = localVideoRef.current;
+        if (!video || video.readyState < 2) return null;
+        const w = video.videoWidth || 640;
+        const h = video.videoHeight || 480;
+        const snap = document.createElement("canvas");
+        snap.width = w;
+        snap.height = h;
+        snap.getContext("2d")!.drawImage(video, 0, 0, w, h);
+        return snap.toDataURL("image/jpeg", 0.85);
+    }, []);
+
     return {
         localVideoRef,
         remoteImgRef,
@@ -121,5 +136,6 @@ export const useQuickDraw = (
         initializeMedia,
         startFrameStream,
         stopFrameStream,
+        captureSnapshot,
     };
 };

@@ -1,46 +1,139 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import DuelArena from './DualArena';
+import { useDuelSocket } from '../hooks/useDuelSocket';
+import { useQuickDraw } from '../hooks/useQuickDraw';
+
+import type { RoundPhase, RoundResult } from '../types/duel';
+export type { RoundPhase, RoundResult };
 
 interface MatchPageProps {
   roomId: string;
   opponentId: string;
+  playerId: string;
   isInitiator: boolean;
   onMatchEnd: (won: boolean) => void;
 }
 
+// After DRAW! appears, wait this long before capturing the snapshot.
+const DRAW_DELAY_MS = 3000;
+
 export const MatchPage: React.FC<MatchPageProps> = ({
   roomId,
+  opponentId,
+  playerId,
   isInitiator,
   onMatchEnd,
 }) => {
-  // These states will be replaced by WebSocket events in Phase 5
+  const [roundPhase, setRoundPhase] = useState<RoundPhase>('waiting');
+  const [targetSign, setTargetSign] = useState<string | null>(null);
   const [roundNumber, setRoundNumber] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
-  const [opponentScore] = useState(0); // setter wired to WebSocket in Phase 5
-  const [countdown, setCountdown] = useState<number | null>(5);
-  const [targetSign, setTargetSign] = useState<string | null>(null);
+  const [opponentScore, setOpponentScore] = useState(0);
+  const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
+  const [isReadyPressed, setIsReadyPressed] = useState(false);
 
-  // End the match once a player reaches 3 points. Must be a separate effect so
-  // onMatchEnd is never called inside a state updater (which runs during render).
-  React.useEffect(() => {
-    if (playerScore >= 3) onMatchEnd(true);
-  }, [playerScore, onMatchEnd]);
+  const { socket } = useDuelSocket();
+  const { localVideoRef, remoteImgRef, initializeMedia, startFrameStream, stopFrameStream, captureSnapshot } =
+    useQuickDraw(socket, {
+      onConnectionLost: () => alert('Partner disconnected!'),
+    });
 
-  // Mock round flow — remove when hooking up game state events in Phase 5
-  React.useEffect(() => {
-    if (countdown === 0) {
-      setTargetSign('B');
-      setTimeout(() => {
-        setPlayerScore(prev => prev + 1);
-        setCountdown(5);
-        setRoundNumber(prev => prev + 1);
-        setTargetSign(null);
-      }, 4000);
-    } else if (countdown !== null) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
+  // Refs so timer callbacks always read the latest values without stale closures.
+  const targetSignRef = useRef<string | null>(null);
+  targetSignRef.current = targetSign;
+  const roundPhaseRef = useRef<RoundPhase>('waiting');
+  roundPhaseRef.current = roundPhase;
+
+  const drawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Camera setup — runs once on mount.
+  useEffect(() => {
+    let active = true;
+    initializeMedia()
+      .then((stream) => {
+        if (!stream || !active) return;
+        startFrameStream(roomId);
+      })
+      .catch(console.error);
+    return () => {
+      active = false;
+      stopFrameStream();
+    };
+  }, [roomId, initializeMedia, startFrameStream, stopFrameStream]);
+
+  // Show DRAW! immediately, then capture a snapshot after DRAW_DELAY_MS.
+  const scheduleSnapshot = useCallback(() => {
+    if (drawTimerRef.current) clearTimeout(drawTimerRef.current);
+    drawTimerRef.current = setTimeout(() => {
+      if (roundPhaseRef.current !== 'drawing') return;
+      const snapshot = captureSnapshot();
+      const sign = targetSignRef.current;
+      if (snapshot && sign && socket) {
+        socket.emit('draw_made', {
+          image: snapshot,
+          target_sign: sign,
+          room_id: roomId,
+          player_id: playerId,
+        });
+      }
+      setRoundPhase('analyzing');
+    }, DRAW_DELAY_MS);
+  }, [captureSnapshot, roomId, playerId, socket]);
+
+  // Socket event listeners — registered once on mount.
+  useEffect(() => {
+    if (!socket) return;
+
+    const onRoundStart = (data: { round_number: number; target_sign: string }) => {
+      if (drawTimerRef.current) clearTimeout(drawTimerRef.current);
+
+      setRoundNumber(data.round_number);
+      setTargetSign(data.target_sign);
+      setRoundResult(null);
+      setIsReadyPressed(false);
+      setRoundPhase('drawing');
+      scheduleSnapshot();
+    };
+
+    const onRoundResult = (data: {
+      winner_id: string | null;
+      player_results: Record<string, { matches: boolean; detected_sign: string }>;
+      scores: Record<string, number>;
+      is_replay: boolean;
+    }) => {
+      setPlayerScore(data.scores[playerId] ?? 0);
+      setOpponentScore(data.scores[opponentId] ?? 0);
+      setRoundResult({
+        winnerId: data.winner_id,
+        playerResults: data.player_results,
+        scores: data.scores,
+        isReplay: data.is_replay,
+      });
+      setRoundPhase('result');
+    };
+
+    const onMatchComplete = (data: { winner_id: string; final_scores: Record<string, number> }) => {
+      setPlayerScore(data.final_scores[playerId] ?? 0);
+      setOpponentScore(data.final_scores[opponentId] ?? 0);
+      onMatchEnd(data.winner_id === playerId);
+    };
+
+    socket.on('round_start', onRoundStart);
+    socket.on('round_result', onRoundResult);
+    socket.on('match_complete', onMatchComplete);
+
+    return () => {
+      socket.off('round_start', onRoundStart);
+      socket.off('round_result', onRoundResult);
+      socket.off('match_complete', onMatchComplete);
+      if (drawTimerRef.current) clearTimeout(drawTimerRef.current);
+    };
+  }, [socket, playerId, opponentId, onMatchEnd, scheduleSnapshot]);
+
+  const handleContinue = useCallback(() => {
+    setIsReadyPressed(true);
+    socket?.emit('player_ready', { room_id: roomId, player_id: playerId });
+  }, [socket, roomId, playerId]);
 
   return (
     <div className="match-page-container">
@@ -48,10 +141,16 @@ export const MatchPage: React.FC<MatchPageProps> = ({
         matchId={roomId}
         isInitiator={isInitiator}
         targetSign={targetSign}
-        countdown={countdown}
+        roundPhase={roundPhase}
         roundNumber={roundNumber}
         playerScore={playerScore}
         opponentScore={opponentScore}
+        roundResult={roundResult}
+        myPlayerId={playerId}
+        isReadyPressed={isReadyPressed}
+        onContinue={handleContinue}
+        localVideoRef={localVideoRef}
+        remoteImgRef={remoteImgRef}
       />
     </div>
   );
