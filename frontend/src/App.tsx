@@ -7,9 +7,9 @@ import ResultPage from "./components/ResultPage";
 import AboutPage from "./components/AboutPage";
 import HowToPlayPage from "./components/HowToPlayPage";
 import TutorialPage from "./components/TutorialPage";
+import LeaderboardPage from "./components/LeaderboardPage"; 
 
-type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT" | "HOW_TO_PLAY" | "TUTORIAL";
-
+type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT" | "HOW_TO_PLAY" | "LEADERBOARD";
 interface MatchInfo {
     roomId: string;
     opponentId: string;
@@ -19,6 +19,7 @@ interface MatchInfo {
 
 function App() {
     const { isAuthenticated, isLoading } = useAuth0();
+    const handleViewLeaderboard = () => setCurrentPage("LEADERBOARD");
 
     // --- THESE ARE THE VARIABLES THAT WENT MISSING! ---
     const [currentPage, setCurrentPage] = useState<PageState>("LOBBY");
@@ -116,6 +117,7 @@ function App() {
                     onViewAbout={handleViewAbout}
                     onViewHowToPlay={handleViewHowToPlay}
                     onViewTutorial={handleViewTutorial}
+                    onViewLeaderboard={handleViewLeaderboard}
                 />
             )}
 
@@ -145,6 +147,10 @@ function App() {
             {currentPage === "HOW_TO_PLAY" && (
                 <HowToPlayPage onBack={handleBackToLobby} />
             )}
+            {currentPage === "LEADERBOARD" && (
+            <LeaderboardPage onBack={handleBackToLobby} />
+)}
+            
         </div>
     );
 }

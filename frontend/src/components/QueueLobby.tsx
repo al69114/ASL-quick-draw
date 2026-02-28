@@ -15,6 +15,7 @@ interface QueueLobbyProps {
     onViewHowToPlay: () => void;
     onViewTutorial: () => void;
     eloAdjustment?: number;
+    onViewLeaderboard: () => void;  
 }
 
 const ELO_CLAIM = "https://quickdraw-asl.example.com/elo";
@@ -25,6 +26,8 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
     onViewHowToPlay,
     onViewTutorial,
     eloAdjustment = 0,
+    onViewLeaderboard
+    
 }) => {
     const [isQueueing, setIsQueueing] = useState(false);
     const [queuePosition, setQueuePosition] = useState<number | null>(null);
@@ -144,6 +147,14 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
                         >
                             Practice Range (Train Solo)
                         </button>
+                        <button
+                        
+                        onClick={onViewLeaderboard}
+                        className="bg-orange-900 hover:bg-orange-800 w-full text-white text-xl font-bold py-3 px-8 border-4 border-orange-950 rounded transition-all hover:scale-105"
+                        >
+                            Most Wanted (Leaderboards)
+                        </button>
+                        
                         <button
                             onClick={onViewAbout}
                             className="bg-stone-800 hover:bg-stone-700 w-full text-gray-300 text-xl font-bold py-3 px-8 border-4 border-stone-900 rounded transition-all hover:scale-105"
