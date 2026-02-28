@@ -27,7 +27,6 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
     onViewTutorial,
     eloAdjustment = 0,
     onViewLeaderboard
-    
 }) => {
     const [isQueueing, setIsQueueing] = useState(false);
     const [queuePosition, setQueuePosition] = useState<number | null>(null);
@@ -103,14 +102,18 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-amber-900 text-yellow-100 bg-wood-pattern p-6">
-            <div className="max-w-2xl text-center border-8 border-yellow-800 bg-black bg-opacity-60 p-12 rounded-xl shadow-2xl">
-                <button 
-                     onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
-                     className="absolute top-4 right-4 text-sm font-mono text-gray-400 hover:text-white transition-colors z-50"
-                >
+        // Added 'relative' here so the logout button can stick to the corners
+        <div className="flex flex-col items-center justify-center min-h-screen bg-amber-900 text-yellow-100 bg-wood-pattern p-6 relative">
+            
+            <button 
+                onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                className="absolute top-4 right-4 text-sm font-mono text-gray-400 hover:text-white transition-colors z-50"
+            >
                 Hit the trail (Logout)
             </button>
+
+            <div className="max-w-2xl text-center border-8 border-yellow-800 bg-black bg-opacity-60 p-12 rounded-xl shadow-2xl relative w-full">
+                
                 <h1 className="text-7xl font-serif text-yellow-500 mb-4 drop-shadow-lg tracking-widest uppercase">
                     Quick Draw
                 </h1>
@@ -147,10 +150,10 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({
                         >
                             Practice Range (Train Solo)
                         </button>
+
                         <button
-                        
-                        onClick={onViewLeaderboard}
-                        className="bg-orange-900 hover:bg-orange-800 w-full text-white text-xl font-bold py-3 px-8 border-4 border-orange-950 rounded transition-all hover:scale-105"
+                            onClick={onViewLeaderboard}
+                            className="bg-orange-900 hover:bg-orange-800 w-full text-white text-xl font-bold py-3 px-8 border-4 border-orange-950 rounded transition-all hover:scale-105"
                         >
                             Most Wanted (Leaderboards)
                         </button>
