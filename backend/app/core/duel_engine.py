@@ -55,6 +55,15 @@ class DuelEngine:
             return room.player1_id
         raise ValueError(f"Player {player_id} is not part of room {room.room_id}")
 
+    def _calculate_elo_delta(self, winner_elo: int, loser_elo: int) -> int:
+        """Standard Elo formula: expected = 1 / (1 + 10^((Rb - Ra) / 400)).
+        Returns the amount to add to winner (and subtract from loser).
+        """
+        k_factor = 32
+        expected_winner = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
+        delta = round(k_factor * (1 - expected_winner))
+        return max(5, delta)  # minimum gain of 5 points
+
     def _apply_match_result(
         self,
         winner_id: str,
@@ -64,11 +73,13 @@ class DuelEngine:
             winner_stats = self._auth0_service.get_user_stats(winner_id)
             loser_stats = self._auth0_service.get_user_stats(loser_id)
 
+            delta = self._calculate_elo_delta(winner_stats.elo, loser_stats.elo)
+
             winner_stats.wins += 1
-            winner_stats.elo += self._elo_delta
+            winner_stats.elo += delta
 
             loser_stats.losses += 1
-            loser_stats.elo = max(100, loser_stats.elo - self._elo_delta)
+            loser_stats.elo = max(100, loser_stats.elo - delta)
 
             self._auth0_service.update_user_stats(winner_id, winner_stats)
             self._auth0_service.update_user_stats(loser_id, loser_stats)

@@ -14,9 +14,66 @@ logger = logging.getLogger(__name__)
 _pending_results: dict = {}
 
 
+async def notify_match_found(sio, duel_engine, t1: QueueTicket, t2: QueueTicket):
+    room = duel_engine.start_duel(t1, t2)
+    logger.info(f"Match found: {t1.player_id} vs {t2.player_id} in room {room.room_id}")
+
+    await sio.emit(
+        "match_found",
+        {
+            "room_id": room.room_id,
+            "opponent_id": t2.player_id,
+            "opponent_elo": t2.elo,
+            "is_initiator": true,
+        },
+        to=t1.sid,
+    )
+    await sio.emit(
+        "match_found",
+        {
+            "room_id": room.room_id,
+            "opponent_id": t1.player_id,
+            "opponent_elo": t1.elo,
+            "is_initiator": false,
+        },
+        to=t2.sid,
+    )
+
+    # Wait for both clients to mount their MatchPage and register
+    # socket listeners before firing the first round_start.
+    await asyncio.sleep(1.0)
+
+    room = duel_engine.start_round(room.room_id)
+    round_payload = {
+        "room_id": room.room_id,
+        "round_number": room.round_number,
+        "target_sign": room.target_sign,
+    }
+    await sio.emit("round_start", round_payload, to=t1.sid)
+    await sio.emit("round_start", round_payload, to=t2.sid)
+    logger.info(
+        f"Round {room.round_number} started in room {room.room_id}: sign={room.target_sign}"
+    )
+
+
+async def start_background_matchmaker(sio, matchmaker: EloMatchmaker, duel_engine: DuelEngine):
+    """Periodically check the queue for matches, enabling wait-time expansion to work."""
+    while True:
+        try:
+            matches = matchmaker.find_all_matches()
+            for t1, t2 in matches:
+                asyncio.create_task(notify_match_found(sio, duel_engine, t1, t2))
+        except Exception as e:
+            logger.error(f"Background matchmaker error: {e}")
+        await asyncio.sleep(5)  # check every 5 seconds
+
+
 def setup_websocket_handlers(
     sio, matchmaker: EloMatchmaker, duel_engine: DuelEngine, sid_to_player: dict
 ):
+    # Start the background task
+    asyncio.create_task(start_background_matchmaker(sio, matchmaker, duel_engine))
+
     @sio.on("enter_queue")
     async def enter_queue(sid, data):
         player_id = data.get("player_id")
@@ -35,50 +92,11 @@ def setup_websocket_handlers(
         sid_to_player[sid] = player_id
         logger.info(f"Player {player_id} (elo={elo}) entered queue")
 
+        # Try to match immediately
         match = matchmaker.find_match(player_id)
         if match:
             t1, t2 = match
-            room = duel_engine.start_duel(t1, t2)
-            logger.info(
-                f"Match found: {t1.player_id} vs {t2.player_id} in room {room.room_id}"
-            )
-
-            await sio.emit(
-                "match_found",
-                {
-                    "room_id": room.room_id,
-                    "opponent_id": t2.player_id,
-                    "opponent_elo": t2.elo,
-                    "is_initiator": True,
-                },
-                to=t1.sid,
-            )
-            await sio.emit(
-                "match_found",
-                {
-                    "room_id": room.room_id,
-                    "opponent_id": t1.player_id,
-                    "opponent_elo": t1.elo,
-                    "is_initiator": False,
-                },
-                to=t2.sid,
-            )
-
-            # Wait for both clients to mount their MatchPage and register
-            # socket listeners before firing the first round_start.
-            await asyncio.sleep(1.0)
-
-            room = duel_engine.start_round(room.room_id)
-            round_payload = {
-                "room_id": room.room_id,
-                "round_number": room.round_number,
-                "target_sign": room.target_sign,
-            }
-            await sio.emit("round_start", round_payload, to=t1.sid)
-            await sio.emit("round_start", round_payload, to=t2.sid)
-            logger.info(
-                f"Round {room.round_number} started in room {room.room_id}: sign={room.target_sign}"
-            )
+            await notify_match_found(sio, duel_engine, t1, t2)
         else:
             await sio.emit(
                 "queue_joined", {"position": matchmaker.queue_size()}, to=sid
