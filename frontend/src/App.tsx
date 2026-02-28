@@ -10,6 +10,7 @@ type PageState = "LOBBY" | "MATCH" | "RESULT";
 interface MatchInfo {
     roomId: string;
     opponentId: string;
+    playerId: string;
     isInitiator: boolean;
 }
 
@@ -53,6 +54,7 @@ function App() {
                 <MatchPage
                     roomId={matchInfo.roomId}
                     opponentId={matchInfo.opponentId}
+                    playerId={matchInfo.playerId}
                     isInitiator={matchInfo.isInitiator}
                     onMatchEnd={handleMatchEnd}
                 />

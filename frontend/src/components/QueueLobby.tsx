@@ -5,6 +5,7 @@ import { useDuelSocket } from '../hooks/useDuelSocket';
 interface MatchInfo {
   roomId: string;
   opponentId: string;
+  playerId: string;
   isInitiator: boolean;
 }
 
@@ -40,6 +41,7 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
       onMatchFoundRef.current({
         roomId: data.room_id,
         opponentId: data.opponent_id,
+        playerId: getPlayerId(),
         isInitiator: data.is_initiator,
       });
     };

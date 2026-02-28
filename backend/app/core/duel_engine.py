@@ -1,7 +1,10 @@
+import random
 from typing import Dict, Optional
 
 from app.models.showdown_state import DuelRoom, QueueTicket, PlayerElo as PlayerStats
 from app.services.auth0_service import Auth0Service
+
+SIGNS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 
 class DuelEngine:

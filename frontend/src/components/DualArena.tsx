@@ -1,62 +1,114 @@
-import React, { useEffect, useState } from 'react';
-import { useQuickDraw } from '../hooks/useQuickDraw';
-import { useDuelSocket } from '../hooks/useDuelSocket';
+import React, { RefObject } from 'react';
 import Scoreboard from './Scoreboard';
+import type { RoundPhase, RoundResult } from '../types/duel';
 
 interface DuelArenaProps {
   matchId: string;
   isInitiator: boolean;
   targetSign: string | null;
-  countdown: number | null;
+  roundPhase: RoundPhase;
   roundNumber: number;
   playerScore: number;
   opponentScore: number;
+  roundResult: RoundResult | null;
+  myPlayerId: string;
+  isReadyPressed: boolean;
+  onContinue: () => void;
+  localVideoRef: RefObject<HTMLVideoElement>;
+  remoteImgRef: RefObject<HTMLImageElement>;
 }
 
 export const DualArena: React.FC<DuelArenaProps> = ({
-  matchId,
+  matchId: _matchId,
+  isInitiator: _isInitiator,
   targetSign,
-  countdown,
+  roundPhase,
   roundNumber,
   playerScore,
   opponentScore,
+  roundResult,
+  myPlayerId,
+  isReadyPressed,
+  onContinue,
+  localVideoRef,
+  remoteImgRef,
 }) => {
-  const [camError, setCamError] = useState<string | null>(null);
-  const { socket } = useDuelSocket();
+  const renderStatus = () => {
+    switch (roundPhase) {
+      case 'drawing':
+        return targetSign ? (
+          <div className="wanted-poster bg-yellow-100 border-4 border-yellow-800 inline-block p-6 mx-auto">
+            <h2 className="text-3xl text-black font-serif">WANTED</h2>
+            <h1 className="text-8xl font-bold mt-2 text-black">SIGN: {targetSign}</h1>
+            <p className="text-xl text-red-600 font-bold animate-pulse mt-4">DRAW!</p>
+          </div>
+        ) : null;
 
-  const {
-    localVideoRef,
-    remoteImgRef,
-    initializeMedia,
-    startFrameStream,
-    stopFrameStream,
-  } = useQuickDraw(socket, {
-    onRoundStart: () => console.log('Round Started!'),
-    onRoundEnd: () => console.log('Round Ended!'),
-    onConnectionLost: () => alert('Partner disconnected!'),
-  });
+      case 'analyzing':
+        return (
+          <h2 className="text-4xl text-yellow-300 drop-shadow-md animate-pulse">
+            Analyzin' your draw...
+          </h2>
+        );
 
-  useEffect(() => {
-    let active = true;
+      case 'result':
+        return renderRoundResult();
 
-    const init = async () => {
-      const stream = await initializeMedia().catch(err => {
-        console.error(err);
-        setCamError('Camera permission denied or unavailable.');
-        return undefined;
-      });
+      default:
+        return (
+          <h2 className="text-4xl text-white drop-shadow-md">
+            Waitin' for the next round...
+          </h2>
+        );
+    }
+  };
 
-      if (!stream || !active) return;
-      startFrameStream(matchId);
-    };
+  const renderRoundResult = () => {
+    if (!roundResult) return null;
 
-    init();
+    const myResult = roundResult.playerResults[myPlayerId];
+    let headline: string;
+    let headlineColor: string;
 
-    return () => {
-      active = false;
-      stopFrameStream();
-    };
-  }, [matchId, initializeMedia, startFrameStream, stopFrameStream]);
+    if (roundResult.isReplay) {
+      headline = roundResult.winnerId === null
+        ? 'Both missed — replay!'
+        : 'Too close to call — replay!';
+      headlineColor = 'text-yellow-400';
+    } else if (roundResult.winnerId === myPlayerId) {
+      headline = 'You win this round!';
+      headlineColor = 'text-green-400';
+    } else if (roundResult.winnerId === null) {
+      // Both correct, both got a point
+      headline = 'Both got it — point each!';
+      headlineColor = 'text-blue-400';
+    } else {
+      headline = 'Opponent wins this round';
+      headlineColor = 'text-red-400';
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-4">
+        <h2 className={`text-5xl font-bold drop-shadow-md ${headlineColor}`}>{headline}</h2>
+        {myResult && (
+          <p className="text-xl text-gray-200">
+            You showed: <span className="font-bold text-white">{myResult.detected_sign}</span>
+            {' '}({myResult.matches ? '✓ correct' : '✗ wrong'})
+          </p>
+        )}
+        {isReadyPressed ? (
+          <p className="text-lg text-gray-400 mt-2">Waitin' on partner...</p>
+        ) : (
+          <button
+            onClick={onContinue}
+            className="mt-4 px-10 py-4 bg-yellow-600 hover:bg-yellow-500 text-black font-bold text-2xl rounded-lg shadow-lg transition-colors"
+          >
+            Continue
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="saloon-container bg-wood-pattern min-h-screen p-8 flex flex-col">
@@ -67,19 +119,9 @@ export const DualArena: React.FC<DuelArenaProps> = ({
         opponentScore={opponentScore}
       />
 
-      {/* Prompt ("Make sign: B") and countdown */}
+      {/* Main status area */}
       <div className="match-status text-center my-8 flex-grow flex flex-col justify-center">
-        {countdown !== null && countdown > 0 ? (
-          <h2 className="text-6xl text-red-600 font-bold drop-shadow-md">HIGH NOON IN: {countdown}</h2>
-        ) : targetSign ? (
-          <div className="wanted-poster bg-yellow-100 border-4 border-yellow-800 inline-block p-6 mx-auto">
-            <h2 className="text-3xl text-black font-serif">WANTED</h2>
-            <h1 className="text-8xl font-bold mt-2 text-black">SIGN: {targetSign}</h1>
-            <p className="text-xl text-red-600 font-bold animate-pulse mt-4">DRAW!</p>
-          </div>
-        ) : (
-          <h2 className="text-4xl text-white drop-shadow-md">Waitin' for the next round...</h2>
-        )}
+        {renderStatus()}
       </div>
 
       {/* Two feeds side by side: local camera (video) and opponent (img) */}
@@ -88,8 +130,13 @@ export const DualArena: React.FC<DuelArenaProps> = ({
           <span className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-3 py-1 text-xl font-bold rounded z-10">
             You
           </span>
-          {camError && <p className="text-red-500 font-mono text-center px-4 z-10">{camError}</p>}
-          <video ref={localVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" />
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]"
+          />
         </div>
 
         <div className="video-container relative border-8 border-yellow-900 rounded-md bg-black shadow-2xl w-96 h-72 flex items-center justify-center">

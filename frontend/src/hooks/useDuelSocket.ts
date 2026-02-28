@@ -8,7 +8,7 @@ let _socket: Socket | null = null;
 
 function getSocket(): Socket {
   if (!_socket) {
-    _socket = io(SOCKET_URL, { autoConnect: false });
+    _socket = io(SOCKET_URL, { autoConnect: false, transports: ['websocket'] });
   }
   return _socket;
 }

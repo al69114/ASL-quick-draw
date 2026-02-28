@@ -8,6 +8,11 @@ from model_service import classifier, preprocess_image
 
 logger = logging.getLogger(__name__)
 
+# Accumulate per-round classification results here so handle_draw can be called
+# once we have the detected_sign from the classifier.
+# Structure: room_id → {player_id: {"matches": bool, "detected_sign": str}}
+_pending_results: dict = {}
+
 
 def setup_websocket_handlers(
     sio, matchmaker: EloMatchmaker, duel_engine: DuelEngine, sid_to_player: dict
@@ -58,6 +63,22 @@ def setup_websocket_handlers(
                 },
                 to=t2.sid,
             )
+
+            # Wait for both clients to mount their MatchPage and register
+            # socket listeners before firing the first round_start.
+            await asyncio.sleep(1.0)
+
+            room = duel_engine.start_round(room.room_id)
+            round_payload = {
+                "room_id": room.room_id,
+                "round_number": room.round_number,
+                "target_sign": room.target_sign,
+            }
+            await sio.emit("round_start", round_payload, to=t1.sid)
+            await sio.emit("round_start", round_payload, to=t2.sid)
+            logger.info(
+                f"Round {room.round_number} started in room {room.room_id}: sign={room.target_sign}"
+            )
         else:
             await sio.emit(
                 "queue_joined", {"position": matchmaker.queue_size()}, to=sid
@@ -82,18 +103,27 @@ def setup_websocket_handlers(
                 "room_id":     "<match room id>"
             }
 
-        Emits 'classification_result' back to the sender:
+        After both players in the room have submitted, emits 'round_result'
+        to both players:
             {
-                "matches":        bool,
-                "detected_sign":  str,
-                "confidence":     float,
-                "player_id":      str,
-                "room_id":        str
+                "room_id":        str,
+                "winner_id":      str | null,
+                "player_results": {player_id: {"matches": bool, "detected_sign": str}},
+                "scores":         {player_id: int},
+                "is_replay":      bool
+            }
+        If the match is over, additionally emits 'match_complete':
+            {
+                "room_id":       str,
+                "winner_id":     str,
+                "final_scores":  {player_id: int}
             }
         """
         image_b64: str = data.get("image", "")
         target_sign: str = data.get("target_sign", "")
         room_id: str = data.get("room_id", "")
+        # Prefer the player_id sent in the payload; fall back to the SID lookup.
+        player_id: str = data.get("player_id") or sid_to_player.get(sid, sid)
 
         if not image_b64 or not target_sign:
             await sio.emit(
@@ -128,6 +158,7 @@ def setup_websocket_handlers(
             result = await loop.run_in_executor(
                 None, classifier.classify, image_bytes, target_sign
             )
+            print(result)
         except Exception as exc:
             logger.error(f"Classification error for {sid}: {exc}")
             await sio.emit("classification_error", {"error": str(exc)}, to=sid)

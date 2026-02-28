@@ -3,7 +3,7 @@ import json
 from google import genai
 from google.genai import types
 
-_MODEL_NAME = "gemini-2.5-flash"
+_MODEL_NAME = "gemini-3-flash-preview"
 
 _PROMPT_TEMPLATE = """You are an ASL (American Sign Language) hand sign expert.
 
@@ -16,6 +16,7 @@ Rules:
 - "matches" is true only if you are reasonably confident the sign shown is '{target}'.
 - "detected_sign" is the single uppercase letter you think is being shown, or "UNKNOWN" if no clear hand sign is visible.
 - "confidence" is your confidence level between 0.0 and 1.0.
+- Do not give a correct classification if the hand sign looks like the letter, it MUST be valid ASL
 """
 
 
