@@ -5,3 +5,5 @@ pydantic-settings
 python-dotenv
 sqlalchemy
 psycopg2-binary
+google-genai>=1.0.0
+Pillow>=10.0.0
