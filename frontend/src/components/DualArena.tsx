@@ -42,7 +42,7 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         roundNumber={roundNumber} 
         playerScore={playerScore} 
         opponentScore={opponentScore} 
-      />
+      />  
 
       {/* Prompt (“Make sign: B”) and countdown */}
       <div className="match-status text-center my-8 flex-grow flex flex-col justify-center">
