@@ -6,7 +6,6 @@ python-dotenv
 sqlalchemy
 psycopg2-binary
 python-jose[cryptography]
-auth0-python
 google-genai>=1.0.0
 Pillow>=10.0.0
 python-socketio[client]

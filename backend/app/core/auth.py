@@ -21,7 +21,7 @@ class TokenData(BaseModel):
 
 class TokenConfig(BaseModel):
     """Auth0 configuration from environment"""
-    auth0_domain: https://dev-1bou1flmzymbet2t.us.auth0.com/api/v2/
+    auth0_domain: str
     auth0_audience: str
     algorithms: list[str] = ["RS256"]
 

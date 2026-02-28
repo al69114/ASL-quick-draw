@@ -183,24 +183,15 @@ def setup_websocket_handlers(
             draw_state = duel_engine.handle_draw(room_id, pid, True)
             scores = draw_state["scores"]
             if draw_state["status"] == "match_finished":
-                await sio.emit(
-                    "match_complete",
-                    {
-                        "room_id": room_id,
-                        "winner_id": draw_state["winner_id"],
-                        "final_scores": draw_state["scores"],
-                    },
-                    to=room.player1_sid,
-                )
-                await sio.emit(
-                    "match_complete",
-                    {
-                        "room_id": room_id,
-                        "winner_id": draw_state["winner_id"],
-                        "final_scores": draw_state["scores"],
-                    },
-                    to=room.player2_sid,
-                )
+                match_payload = {
+                    "room_id": room_id,
+                    "winner_id": draw_state["winner_id"],
+                    "final_scores": draw_state["scores"],
+                    "winner_stats": draw_state.get("winner_stats"),
+                    "loser_stats": draw_state.get("loser_stats"),
+                }
+                await sio.emit("match_complete", match_payload, to=room.player1_sid)
+                await sio.emit("match_complete", match_payload, to=room.player2_sid)
                 logger.info(f"Match finished in room {room_id}: winner={draw_state['winner_id']}")
                 return
             winner_id = pid

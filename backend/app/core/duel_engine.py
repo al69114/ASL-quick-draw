@@ -66,6 +66,9 @@ class DuelEngine:
             winner_stats = self._auth0_service.get_user_stats(winner_id)
             loser_stats = self._auth0_service.get_user_stats(loser_id)
 
+            original_winner_elo = winner_stats.elo
+            original_loser_elo = loser_stats.elo
+
             # E_a = 1 / (1 + 10^((R_b - R_a) / 400))
             expected_winner = 1 / (1 + 10 ** ((loser_stats.elo - winner_stats.elo) / 400))
             expected_loser = 1 / (1 + 10 ** ((winner_stats.elo - loser_stats.elo) / 400))
@@ -76,6 +79,9 @@ class DuelEngine:
 
             # Ensure ELO doesn't drop below 100
             loser_stats.elo = max(100, loser_stats.elo)
+
+            winner_stats.elo_delta = winner_stats.elo - original_winner_elo
+            loser_stats.elo_delta = loser_stats.elo - original_loser_elo
 
             winner_stats.wins += 1
             loser_stats.losses += 1

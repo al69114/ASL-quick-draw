@@ -9,6 +9,7 @@ class PlayerElo(BaseModel):
     elo: int = 1000
     wins: int = 0
     losses: int = 0
+    elo_delta: int = 0  # change applied this match (positive for winner, negative for loser)
 
 
 class QueueTicket(BaseModel):
