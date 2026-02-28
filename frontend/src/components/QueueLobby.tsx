@@ -11,12 +11,13 @@ interface MatchInfo {
 
 interface QueueLobbyProps {
   onMatchFound: (info: MatchInfo) => void;
-  onViewAbout: () => void; // <-- Must be here
+  onViewAbout: () => void; 
+  onViewHowToPlay: () => void;
 }
 
 const ELO_CLAIM = 'https://quickdraw-asl.example.com/elo';
 
-export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbout }) => {
+export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbout, onViewHowToPlay }) => {
   const [isQueueing, setIsQueueing] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,8 +116,14 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbou
             >
               Belly Up to the Bar (Enter Queue)
             </button>
-
-            {/* NEW: About Page Button */}
+            <button
+              onClick={onViewHowToPlay}
+              className="bg-amber-800 hover:bg-amber-700 w-full text-white text-xl font-bold py-3 px-8 border-4 border-amber-950 rounded transition-all hover:scale-105"
+            >
+              How to Duel (Rules)
+            </button>
+            
+          
             <button
               onClick={onViewAbout}
               className="bg-stone-800 hover:bg-stone-700 w-full text-gray-300 text-xl font-bold py-3 px-8 border-4 border-stone-900 rounded transition-all hover:scale-105"

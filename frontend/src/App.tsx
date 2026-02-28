@@ -4,10 +4,11 @@ import LandingPage from "./components/LandingPage";
 import QueueLobby from "./components/QueueLobby";
 import MatchPage from "./components/MatchPage";
 import ResultPage from "./components/ResultPage";
-import AboutPage from "./components/AboutPage"; // <-- Imported About Page
+import AboutPage from "./components/AboutPage"; 
+import HowToPlayPage from "./components/HowToPlayPage";
 
 // Added ABOUT to PageState
-type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT";
+type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT" | "HOW_TO_PLAY";
 
 interface MatchInfo {
     roomId: string;
@@ -84,6 +85,7 @@ function App() {
 
     // Navigation handlers for the About page
     const handleViewAbout = () => setCurrentPage("ABOUT");
+    const handleViewHowToPlay = () => setCurrentPage("HOW_TO_PLAY");
     const handleBackToLobby = () => setCurrentPage("LOBBY");
 
     return (
@@ -104,11 +106,12 @@ function App() {
             </button>
 
             {currentPage === "LOBBY" && (
-                <QueueLobby 
-                    onMatchFound={handleMatchFound} 
-                    onViewAbout={handleViewAbout} 
-                />
-            )}
+    <QueueLobby 
+        onMatchFound={handleMatchFound} 
+        onViewAbout={handleViewAbout}
+        onViewHowToPlay={handleViewHowToPlay} // <-- Add this
+    />
+)}
             
             {currentPage === "MATCH" && matchInfo && (
                 <MatchPage
@@ -127,6 +130,10 @@ function App() {
             {currentPage === "ABOUT" && (
                 <AboutPage onBack={handleBackToLobby} />
             )}
+
+            {currentPage === "HOW_TO_PLAY" && (
+    <HowToPlayPage onBack={handleBackToLobby} />
+)}
         </div>
     );
 }
