@@ -1,0 +1,2 @@
+AUTH0_DOMAIN = "dev-1bou1flmzymbet2t.us.auth0.com"
+AUTH0_AUDIENCE = "quickdraw-audience-api"

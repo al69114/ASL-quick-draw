@@ -11,11 +11,12 @@ interface MatchInfo {
 
 interface QueueLobbyProps {
   onMatchFound: (info: MatchInfo) => void;
+  onViewAbout: () => void; // <-- Must be here
 }
 
 const ELO_CLAIM = 'https://quickdraw-asl.example.com/elo';
 
-export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
+export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound, onViewAbout }) => {
   const [isQueueing, setIsQueueing] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,12 +108,22 @@ export const QueueLobby: React.FC<QueueLobbyProps> = ({ onMatchFound }) => {
         )}
 
         {!isQueueing ? (
-          <button
-            onClick={handleQueue}
-            className="bg-yellow-700 hover:bg-yellow-600 text-white text-2xl font-bold py-4 px-8 border-4 border-yellow-900 rounded shadow-[0_0_15px_rgba(202,138,4,0.5)] transition-all hover:scale-105"
-          >
-            Belly Up to the Bar (Enter Queue)
-          </button>
+          <div className="flex flex-col gap-4 items-center w-full">
+            <button
+              onClick={handleQueue}
+              className="bg-yellow-700 hover:bg-yellow-600 w-full text-white text-2xl font-bold py-4 px-8 border-4 border-yellow-900 rounded shadow-[0_0_15px_rgba(202,138,4,0.5)] transition-all hover:scale-105"
+            >
+              Belly Up to the Bar (Enter Queue)
+            </button>
+
+            {/* NEW: About Page Button */}
+            <button
+              onClick={onViewAbout}
+              className="bg-stone-800 hover:bg-stone-700 w-full text-gray-300 text-xl font-bold py-3 px-8 border-4 border-stone-900 rounded transition-all hover:scale-105"
+            >
+              The Mission (About)
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>

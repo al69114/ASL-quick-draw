@@ -4,8 +4,10 @@ import LandingPage from "./components/LandingPage";
 import QueueLobby from "./components/QueueLobby";
 import MatchPage from "./components/MatchPage";
 import ResultPage from "./components/ResultPage";
+import AboutPage from "./components/AboutPage"; // <-- Imported About Page
 
-type PageState = "LOBBY" | "MATCH" | "RESULT";
+// Added ABOUT to PageState
+type PageState = "LOBBY" | "MATCH" | "RESULT" | "ABOUT";
 
 interface MatchInfo {
     roomId: string;
@@ -14,9 +16,10 @@ interface MatchInfo {
     isInitiator: boolean;
 }
 
-/* I MERGE NOW, GOOD LUCK EVERYONE ELSE */
 function App() {
     const { isAuthenticated, isLoading } = useAuth0();
+    
+    // --- THESE ARE THE VARIABLES THAT WENT MISSING! ---
     const [currentPage, setCurrentPage] = useState<PageState>("LOBBY");
     const [didWin, setDidWin] = useState(false);
     const [matchInfo, setMatchInfo] = useState<MatchInfo | null>(null);
@@ -37,7 +40,6 @@ function App() {
             if (isPlaying) {
                 audioRef.current.pause();
             } else {
-                // Catch handles any browser autoplay policy rejections
                 audioRef.current
                     .play()
                     .catch((err) => console.error("Playback failed:", err));
@@ -62,24 +64,29 @@ function App() {
         setMatchInfo(info);
         setCurrentPage("MATCH");
     };
-   const handleMatchEnd = (won: boolean) => {
+
+    const handleMatchEnd = (won: boolean) => {
         setDidWin(won);
         setCurrentPage("RESULT");
 
         // Play the Yeehaw sound if they won the whole showdown
         if (won) {
             const yeehaw = new Audio('/yeehaw.mp3');
-            yeehaw.volume = 0.6; // Adjust volume so it doesn't blow out their speakers
+            yeehaw.volume = 0.6;
             yeehaw.play().catch(err => console.error("SFX failed:", err));
         }
     };
+
     const handleRequeue = () => {
         setMatchInfo(null);
         setCurrentPage("LOBBY");
     };
 
+    // Navigation handlers for the About page
+    const handleViewAbout = () => setCurrentPage("ABOUT");
+    const handleBackToLobby = () => setCurrentPage("LOBBY");
+
     return (
-        // Added 'relative' to the main wrapper so the absolute button positions correctly
         <div className="app-root min-h-screen bg-gray-900 relative">
             {/* Global Background Music Element */}
             <audio
@@ -97,8 +104,12 @@ function App() {
             </button>
 
             {currentPage === "LOBBY" && (
-                <QueueLobby onMatchFound={handleMatchFound} />
+                <QueueLobby 
+                    onMatchFound={handleMatchFound} 
+                    onViewAbout={handleViewAbout} 
+                />
             )}
+            
             {currentPage === "MATCH" && matchInfo && (
                 <MatchPage
                     roomId={matchInfo.roomId}
@@ -108,8 +119,13 @@ function App() {
                     onMatchEnd={handleMatchEnd}
                 />
             )}
+            
             {currentPage === "RESULT" && (
                 <ResultPage isWinner={didWin} onRequeue={handleRequeue} />
+            )}
+
+            {currentPage === "ABOUT" && (
+                <AboutPage onBack={handleBackToLobby} />
             )}
         </div>
     );
