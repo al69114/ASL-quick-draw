@@ -32,6 +32,8 @@ export const MatchPage: React.FC<MatchPageProps> = ({
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [isReadyPressed, setIsReadyPressed] = useState(false);
+  const [frozenFrame, setFrozenFrame] = useState<string | null>(null);
+  const [frozenOpponentFrame, setFrozenOpponentFrame] = useState<string | null>(null);
 
   const { socket } = useDuelSocket();
   const { localVideoRef, remoteImgRef, initializeMedia, startFrameStream, stopFrameStream, captureSnapshot } =
@@ -69,6 +71,10 @@ export const MatchPage: React.FC<MatchPageProps> = ({
     drawTimerRef.current = setTimeout(() => {
       if (roundPhaseRef.current !== 'drawing') return;
       const snapshot = captureSnapshot();
+      if (snapshot) setFrozenFrame(snapshot);
+      // Freeze opponent's last received frame at the same instant
+      const opponentSrc = remoteImgRef.current?.src ?? '';
+      if (opponentSrc.startsWith('data:')) setFrozenOpponentFrame(opponentSrc);
       const sign = targetSignRef.current;
       if (snapshot && sign && socket) {
         socket.emit('draw_made', {
@@ -94,6 +100,8 @@ export const MatchPage: React.FC<MatchPageProps> = ({
       setTargetSign(data.target_sign);
       setRoundResult(null);
       setIsReadyPressed(false);
+      setFrozenFrame(null);
+      setFrozenOpponentFrame(null);
       setCountdownValue(5);
       setRoundPhase('countdown');
 
@@ -178,6 +186,8 @@ export const MatchPage: React.FC<MatchPageProps> = ({
         onContinue={handleContinue}
         localVideoRef={localVideoRef}
         remoteImgRef={remoteImgRef}
+        frozenFrame={frozenFrame}
+        frozenOpponentFrame={frozenOpponentFrame}
       />
     </div>
   );
